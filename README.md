@@ -15,6 +15,8 @@
 
 <img src="media/gameplay.gif" alt="Night Lord fighting Caplings in the Mushroom Grove" width="720">
 
+**[▶ RPG trailer](https://github.com/rehan-remade/shadow-strike/releases/download/v0.1/shadow-strike-rpg-trailer.mp4)** &nbsp;·&nbsp; **[▶ Skill loops video](https://github.com/rehan-remade/shadow-strike/releases/download/v0.1/shadow-strike-skill-loops.mp4)**
+
 </div>
 
 ---

@@ -13,9 +13,15 @@ function load(name) {
   for (let i = 0; i < n; i++) d[i] = b.readInt16LE(o + 8 + i * 2) / 32768;
   return cache[name] = d;
 }
-const bgm = load('bgm');
-for (let i = 0; i < N; i++) mix[i] += bgm[i % bgm.length] * 0.7 * Math.min(1, i / SR);
-for (const line of readFileSync(log, 'utf8').split('\n').filter(Boolean)) {
+const lines = readFileSync(log, 'utf8').split('\n').filter(Boolean);
+// music: "<frame> music:<track> 1" switches the looping track; no music lines = the legacy pad
+const musicAt = lines.filter(l => l.includes(' music:')).map(l => [Math.round((+l.split(' ')[0] - 1) / 60 * SR), l.split(' ')[1].slice(6)]);
+if (!musicAt.length) musicAt.push([0, 'bgm']);
+for (let k = 0; k < musicAt.length; k++) {
+  const [at, name] = musicAt[k], end = k + 1 < musicAt.length ? musicAt[k + 1][0] : N, m = load(name);
+  for (let i = Math.max(0, at); i < end && i < N; i++) mix[i] += m[(i - at) % m.length] * 0.9 * Math.min(1, (i - at) / (SR * 0.3));
+}
+for (const line of lines.filter(l => !l.includes(' music:'))) {
   const [f, name, vol] = line.split(' ');
   const s = load(name), at = Math.round((+f - 1) / 60 * SR);
   for (let i = 0; i < s.length && at + i < N; i++) mix[at + i] += s[i] * +vol;
