@@ -1,0 +1,122 @@
+<title>Shadow Strike</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+  /* Single deliberate night-arcade theme, taken from the game's own palette */
+  :root {
+    color-scheme: dark;
+    --ink: #0b0a1a;
+    --panel: #1c0f3a;
+    --line: #321a62;
+    --violet: #c98cff;
+    --gold: #ffd84a;
+    --text: #e8e2f5;
+    --muted: #9a90bd;
+    --display: "Silkscreen", "Courier New", monospace;
+    --body: "Atkinson Hyperlegible", system-ui, sans-serif;
+  }
+  html, body { height: 100%; }
+  body {
+    background: var(--ink);
+    color: var(--text);
+    font: 15px/1.55 var(--body);
+    padding-inline: 16px;
+    padding-block: 20px 28px;
+    box-sizing: border-box;
+  }
+  .wrap { max-width: 1152px; margin: 0 auto; display: grid; gap: 16px; }
+  header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px; }
+  h1 { font: 700 clamp(22px, 4vw, 34px)/1 var(--display); letter-spacing: 0.04em; margin: 0; color: var(--gold); text-wrap: balance; }
+  h1 span { color: var(--violet); }
+  .sub { color: var(--muted); font-size: 13px; margin: 0; }
+
+  .frame { position: relative; aspect-ratio: 16 / 9; width: 100%; max-width: 100%; background: #07060f; outline: 2px solid var(--line); outline-offset: 0; }
+  #unity-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; image-rendering: pixelated; image-rendering: crisp-edges; background: #07060f; }
+  #unity-canvas:focus-visible { outline: 2px solid var(--violet); }
+  .overlay { position: absolute; inset: 0; display: grid; place-items: center; align-content: center; gap: 14px; background: #07060fe6; text-align: center; padding: 16px; }
+  .overlay[hidden] { display: none !important; }
+  .bar { width: min(240px, 60%); height: 8px; background: var(--panel); outline: 2px solid var(--line); }
+  .bar i { display: block; height: 100%; width: 0; background: var(--violet); }
+  .overlay p { margin: 0; font: 400 13px/1 var(--display); letter-spacing: 0.08em; color: var(--muted); text-transform: uppercase; }
+  #play { font: 700 16px/1 var(--display); letter-spacing: 0.08em; color: var(--ink); background: var(--gold); border: 0; padding: 14px 22px; cursor: pointer; box-shadow: 0 4px 0 #b8862a; }
+  #play:hover { transform: translateY(-1px); }
+  #play:focus-visible { outline: 3px solid var(--violet); outline-offset: 3px; }
+  #err { color: #ff8a9a; font: 14px/1.5 var(--body); max-width: 46ch; }
+
+  .keys { display: flex; flex-wrap: wrap; gap: 10px 22px; margin: 0; padding: 0; list-style: none; }
+  .keys li { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); }
+  .keys b { color: var(--text); font-weight: 700; }
+  kbd { font: 400 12px/1 var(--display); color: var(--text); background: var(--panel); border: 2px solid var(--line); border-bottom-width: 4px; padding: 5px 7px 3px; min-width: 12px; text-align: center; }
+  .note { color: var(--muted); font-size: 13px; max-width: 72ch; margin: 0; }
+  .note strong { color: var(--text); }
+  @media (prefers-reduced-motion: reduce) { #play:hover { transform: none; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>SHADOW <span>STRIKE</span></h1>
+    <p class="sub">Night Lord vs. the training dummy · Unity 6 WebGL build</p>
+  </header>
+
+  <div class="frame">
+    <canvas id="unity-canvas" tabindex="-1" aria-label="Shadow Strike game"></canvas>
+    <div class="overlay" id="loading">
+      <div class="bar"><i id="fill"></i></div>
+      <p id="status">Loading 6.6 MB</p>
+    </div>
+    <div class="overlay" id="start" hidden>
+      <button id="play" type="button">▶ PLAY</button>
+      <p>Click the game, then use the keys below</p>
+    </div>
+  </div>
+
+  <ul class="keys" aria-label="Controls">
+    <li><kbd>←</kbd><kbd>→</kbd> <b>Move</b></li>
+    <li><kbd>SPACE</kbd> <b>Jump</b> · again in the air for Flash Jump</li>
+    <li><kbd>J</kbd> <b>Triple Throw</b></li>
+    <li><kbd>K</kbd> <b>Avenger</b></li>
+    <li><kbd>L</kbd> <b>Assassinate</b></li>
+    <li><kbd>U</kbd> <b>Shadow Partner</b></li>
+  </ul>
+  <p class="note">Every sprite, effect and sound started as <strong>procedural canvas code</strong> in the prototype loops. It was baked into sprite sheets and WAVs, then imported into Unity at 1 pixel per unit and rendered at a native 192×108 with a point-filtered, integer-scaled upscale.</p>
+</div>
+
+<script>
+%%LOADER%%
+</script>
+<script>
+(function () {
+  var canvas = document.getElementById('unity-canvas');
+  var fill = document.getElementById('fill'), status = document.getElementById('status');
+  var loading = document.getElementById('loading'), start = document.getElementById('start');
+  var config = {
+    dataUrl: 'Build/game-data.wasm',
+    frameworkUrl: 'Build/game-framework.wasm',
+    codeUrl: 'Build/game-code.wasm',
+    streamingAssetsUrl: 'StreamingAssets',
+    companyName: 'fal', productName: 'Shadow Strike', productVersion: '1.0',
+    devicePixelRatio: window.devicePixelRatio || 1,
+  };
+  createUnityInstance(canvas, config, function (p) {
+    fill.style.width = Math.round(p * 100) + '%';
+    status.textContent = p < 1 ? 'Loading ' + Math.round(p * 100) + '%' : 'Starting';
+  }).then(function () {
+    loading.hidden = true;
+    start.hidden = false;
+  }).catch(function (e) {
+    status.innerHTML = '';
+    var m = document.createElement('p'); m.id = 'err';
+    m.textContent = 'The game could not start in this viewer (' + (e && e.message ? e.message : e) + '). The Windows build runs the same game.';
+    loading.appendChild(m);
+  });
+  document.getElementById('play').addEventListener('click', function () {
+    start.hidden = true;
+    canvas.focus();
+  });
+  // keep arrow keys / space from scrolling the page while playing
+  window.addEventListener('keydown', function (e) {
+    if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' '].indexOf(e.key) >= 0 && document.activeElement === canvas) e.preventDefault();
+  });
+})();
+</script>

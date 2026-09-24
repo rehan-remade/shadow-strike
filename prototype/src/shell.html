@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>%%TITLE%%</title>
+<style>
+  html,body{margin:0;height:100%;background:#07060f;overflow:hidden}
+  canvas{display:block;width:100vw;height:100vh;image-rendering:pixelated;image-rendering:crisp-edges}
+  #hint{position:fixed;left:0;right:0;bottom:8px;text-align:center;font:11px/1 ui-monospace,Menlo,monospace;
+        color:#4a4270;letter-spacing:.08em;pointer-events:none;user-select:none}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hint"></div>
+<script>
+%%ENGINE%%
+// ===========================================================================
+// Skill
+// ===========================================================================
+%%SKILL%%
+boot();
+</script>
+</body>
+</html>

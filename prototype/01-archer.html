@@ -1,0 +1,981 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Archer Training Dummy</title>
+<style>
+  html,body{margin:0;height:100%;background:#07060f;overflow:hidden}
+  canvas{display:block;width:100vw;height:100vh;image-rendering:pixelated;image-rendering:crisp-edges}
+  #hint{position:fixed;left:0;right:0;bottom:8px;text-align:center;font:11px/1 ui-monospace,Menlo,monospace;
+        color:#4a4270;letter-spacing:.08em;pointer-events:none;user-select:none}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hint">click: sound &middot; S: slow-mo &middot; space: pause</div>
+<script>
+'use strict';
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+const W = 192, H = 108;          // logical resolution
+const GY = 70;                   // ground line (feet)
+const WY = 75;                   // waterline
+const AX = 62;                   // archer x
+const DX = 148;                  // dummy x
+const FX = 38;                   // campfire x
+const BX = 22;                   // banner x
+const DT = 1 / 60;
+const GRAV = 150;                // arrow gravity px/s^2
+const V_N = 185, V_CH = 320;     // arrow speeds
+const IDLE_A = -0.32;            // bow angle when resting
+
+const PAL = [
+  '#0b0a1a', // 0 ink
+  '#141231', // 1 sky
+  '#1b1a42', // 2
+  '#272456', // 3
+  '#3a2d63', // 4
+  '#553868', // 5
+  '#7e4467', // 6
+  '#b15c68', // 7
+  '#de8a6a', // 8 horizon
+  '#f3bf7c', // 9
+  '#fff0c6', // 10 moon
+  '#2f3a60', // 11 mountains
+  '#232d50', // 12 far trees
+  '#1a2240', // 13 mid trees
+  '#111830', // 14 near trees
+  '#0a0f1f', // 15 nearest
+  '#1f3326', // 16 grass dark
+  '#355630', // 17 grass
+  '#5f8a3c', // 18 grass light
+  '#2e211c', // 19 dirt dark
+  '#4d3527', // 20 dirt / leather
+  '#724c2e', // 21 wood
+  '#a0703a', // 22 wood light
+  '#d2aa55', // 23 straw
+  '#f0d98a', // 24 straw light
+  '#86643a', // 25 burlap dark
+  '#b38b57', // 26 burlap
+  '#26402f', // 27 cloak dark
+  '#3b6443', // 28 cloak
+  '#62905a', // 29 cloak light
+  '#e2b28c', // 30 skin
+  '#a06c50', // 31 skin shadow
+  '#ff6424', // 32 fire red
+  '#ffad33', // 33 fire orange
+  '#fff3a8', // 34 fire yellow
+  '#ffffff', // 35 white
+  '#9a2f3c', // 36 banner red
+  '#2a2a44', // 37 trousers
+  '#c9d3e8', // 38 steel
+  '#ffd84a', // 39 gold
+  '#b8862a', // 40 gold dark
+  '#5e1f2a', // 41 banner shade
+];
+
+// Water palette: every colour mapped to a darker, bluer twin.
+const WATER_MAP = new Map();
+(function () {
+  const tr = 12, tg = 22, tb = 48, k = 0.56;
+  for (const h of PAL) {
+    const v = parseInt(h.slice(1), 16);
+    const r = v >> 16, g = (v >> 8) & 255, b = v & 255;
+    const nr = Math.round(r + (tr - r) * k), ng = Math.round(g + (tg - g) * k), nb = Math.round(b + (tb - b) * k);
+    WATER_MAP.set(v, (nr << 16) | (ng << 8) | nb);
+  }
+})();
+
+// ---------------------------------------------------------------------------
+// Canvas + tiny pixel toolkit
+// ---------------------------------------------------------------------------
+const cv = document.getElementById('c');
+const dc = cv.getContext('2d');
+function mk(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+const off = mk(W, H);
+const g = off.getContext('2d', { willReadFrequently: true });
+
+let X = g, curFill = -1;
+function use(ctx) { X = ctx; curFill = -1; }
+function col(c) { if (c !== curFill) { X.fillStyle = PAL[c]; curFill = c; } }
+function px(x, y, c) { col(c); X.fillRect(Math.round(x), Math.round(y), 1, 1); }
+function R(x, y, w, h, c) { col(c); X.fillRect(Math.round(x), Math.round(y), w, h); }
+function line(x0, y0, x1, y1, c) {
+  x0 = Math.round(x0); y0 = Math.round(y0); x1 = Math.round(x1); y1 = Math.round(y1);
+  col(c);
+  const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+  let err = dx + dy;
+  for (;;) {
+    X.fillRect(x0, y0, 1, 1);
+    if (x0 === x1 && y0 === y1) break;
+    const e2 = 2 * err;
+    if (e2 >= dy) { err += dy; x0 += sx; }
+    if (e2 <= dx) { err += dx; y0 += sy; }
+  }
+}
+const BAY = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+function bay(x, y) { return (BAY[((y & 3) << 2) | (x & 3)] + 0.5) / 16; }
+function rng(seed) { return function () { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function hash(a, b) { let h = (a * 374761393 + b * 668265263) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; }
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const rand = rng(1337);
+const rr = (a, b) => a + rand() * (b - a);
+
+// ---------------------------------------------------------------------------
+// Static background layers
+// ---------------------------------------------------------------------------
+const SKY = [1, 2, 3, 4, 5, 6, 7, 8];
+function skyIdx(x, y) {
+  const t = Math.pow(clamp(y / 66, 0, 1), 1.45);
+  const f = t * (SKY.length - 1), i = Math.floor(f);
+  return Math.min(i + (f - i > bay(x, y) ? 1 : 0), SKY.length - 1);
+}
+const MOON = { x: 154, y: 22, r: 8.5 };
+const CRATERS = new Set(['-3,-2', '-2,-2', '-2,-1', '2,1', '3,1', '2,2', '-1,3', '0,3', '1,-4', '4,-2', '-5,1']);
+
+function pine(cx, baseY, h, c) {
+  R(cx, baseY - 2, 1, 3, c);
+  for (let dy = 0; dy < h; dy++) {
+    const y = baseY - h + dy;
+    const tier = dy % 5;
+    let hw = Math.floor(dy * 0.3 + 0.5) - (tier < 2 && dy > 3 ? 1 : 0);
+    if (hw < 0) hw = 0;
+    R(cx - hw, y, hw * 2 + 1, 1, c);
+  }
+}
+
+const bgFar = mk(W, H), bgMid = mk(W, H);
+(function buildBg() {
+  const r = rng(99);
+  use(bgFar.getContext('2d'));
+  for (let y = 0; y < GY + 1; y++) for (let x = 0; x < W; x++) px(x, y, SKY[skyIdx(x, y)]);
+  // moon + halo
+  for (let y = -14; y <= 14; y++) for (let x = -14; x <= 14; x++) {
+    const d = Math.hypot(x, y), X0 = MOON.x + x, Y0 = MOON.y + y;
+    if (d <= MOON.r) {
+      let c = 10;
+      if ((x + y > 3 && d > MOON.r - 1.4) || CRATERS.has(x + ',' + y)) c = 9;
+      px(X0, Y0, c);
+    } else if (d <= MOON.r + 4) {
+      const k = 1 - (d - MOON.r) / 4;
+      if (bay(X0, Y0) < k * 0.55) px(X0, Y0, SKY[Math.min(skyIdx(X0, Y0) + 1, SKY.length - 1)]);
+    }
+  }
+  // mountains
+  for (let x = 0; x < W; x++) {
+    const top = Math.round(47 + 4 * Math.sin(x * 0.031 + 1.3) + 2.6 * Math.sin(x * 0.087 + 0.4) + 1.2 * Math.sin(x * 0.23));
+    R(x, top, 1, GY - top + 1, 11);
+    if (Math.sin(x * 0.031 + 1.3) * 4 + 2.6 * Math.sin(x * 0.087 + 0.4) > 1.5 && (x & 1)) px(x, top, 5);
+  }
+  // far treeline
+  R(0, 62, W, GY - 61, 12);
+  for (let x = -3; x < W + 3; x += 3 + Math.floor(r() * 4)) pine(x, 64, 8 + Math.floor(r() * 9), 12);
+
+  use(bgMid.getContext('2d'));
+  // mid trees (leave a clearing for the action)
+  const midSpans = [[-4, 30], [98, 126], [172, 196]];
+  for (const [a, b] of midSpans) for (let x = a; x < b; x += 4 + Math.floor(r() * 4)) pine(x, GY, 15 + Math.floor(r() * 12), 13);
+  // big framing trees
+  pine(5, GY, 50, 14); pine(-2, GY, 40, 15); pine(12, GY, 30, 15);
+  pine(186, GY, 54, 14); pine(193, GY, 44, 15); pine(179, GY, 28, 15);
+  // ground
+  R(0, GY, W, 1, 17); R(0, GY + 1, W, 1, 16); R(0, GY + 2, W, WY - GY - 2, 19);
+  for (let x = 0; x < W; x++) {
+    if (r() < 0.3) px(x, GY + 2 + Math.floor(r() * 3), 20);
+    const t = r();
+    if (t < 0.34) px(x, GY - 1, 17);
+    if (t < 0.1) px(x, GY - 2, 18);
+    if (t > 0.97) px(x, GY - 1, 7);
+  }
+})();
+
+// Dummy sprite (24 x 34, base centre col 12, bottom row sits on the ground)
+const DSW = 24, DSH = 34;
+const dSpr = mk(DSW, DSH), dFlash = mk(DSW, DSH);
+(function buildDummy() {
+  use(dSpr.getContext('2d'));
+  // post
+  R(10, 24, 4, 10, 0); R(11, 20, 2, 14, 21); R(12, 20, 1, 14, 22);
+  // crossbar
+  R(1, 12, 22, 1, 0); R(1, 15, 22, 1, 0); R(1, 13, 22, 2, 21); R(1, 13, 22, 1, 22);
+  // straw bundles on the arms
+  for (const bx of [0, 21]) {
+    R(bx, 12, 3, 4, 23);
+    px(bx + 1, 11, 23); px(bx + 1, 12, 24); px(bx, 14, 24); px(bx + 2, 13, 24); px(bx + 1, 16, 23);
+    R(bx + (bx ? 0 : 2), 13, 1, 2, 25);
+  }
+  // body sack with rounded outline
+  function sack(x, y, w, h) {
+    R(x + 1, y, w - 2, 1, 0); R(x + 1, y + h - 1, w - 2, 1, 0);
+    R(x, y + 1, 1, h - 2, 0); R(x + w - 1, y + 1, 1, h - 2, 0);
+    R(x + 1, y + 1, w - 2, h - 2, 26);
+    R(x + w - 3, y + 1, 1, h - 2, 25); R(x + w - 2, y + 1, 1, h - 2, 25);
+    R(x + 1, y + h - 2, w - 2, 1, 25);
+    px(x + 2, y + 2, 24);
+  }
+  sack(6, 11, 12, 15);
+  // target
+  for (let y = 12; y < 25; y++) for (let x = 7; x < 17; x++) {
+    const d = Math.hypot(x - 11, y - 16.5);
+    if ((d > 2.2 && d < 3.3) || d < 1.1) px(x, y, 36);
+  }
+  // waist rope
+  for (let x = 7; x < 17; x++) px(x, 21, (x & 1) ? 22 : 23);
+  // straw poking out bottom
+  px(7, 26, 23); px(8, 27, 24); px(15, 26, 23); px(16, 27, 23); px(9, 26, 24);
+  // head
+  sack(6, 1, 12, 10);
+  for (const ex of [9, 14]) { px(ex - 1, 3, 0); px(ex + 1, 3, 0); px(ex, 4, 0); px(ex - 1, 5, 0); px(ex + 1, 5, 0); }
+  for (let x = 9; x < 15; x++) px(x, 7, (x & 1) ? 0 : 25);
+  px(10, 8, 0); px(12, 8, 0);
+  // neck rope + straw hair
+  for (let x = 8; x < 16; x++) px(x, 10, (x & 1) ? 22 : 23);
+  px(9, 0, 23); px(10, 0, 24); px(12, 0, 23); px(14, 0, 24); px(5, 3, 23); px(18, 4, 23);
+  // flash silhouette
+  const fc = dFlash.getContext('2d');
+  fc.drawImage(dSpr, 0, 0); fc.globalCompositeOperation = 'source-in'; fc.fillStyle = PAL[35]; fc.fillRect(0, 0, DSW, DSH);
+  use(g);
+})();
+
+// Archer sprite, facing right. Row 20 stands on the ground.
+const ARCHER = [
+  '......oooo....',
+  '.....oLLHHo...',
+  '....oLHHHHHo..',
+  '...ohHHHHHHHo.',
+  '..ohhHHHoSsso.',
+  '..ohhHHoSsesso',
+  '..ohhHHoSssso.',
+  '..ohhhHHoSsso.',
+  '..ohhhHHHooo..',
+  '.ohhhhhHHtTTo.',
+  '.ohhhhhHHtTTTo',
+  '.ohhhhhHHtTTTo',
+  '.ohhhhhHHbbbyo',
+  '.ohhhhhHHtTTTo',
+  '.ohhhhhhHHtTo.',
+  '..ohhhhhHHto..',
+  '...ooooopppo..',
+  '....oppooppo..',
+  '....opo..opo..',
+  '...okko..okko.',
+  '...okkko.okkko',
+];
+const LEG = { o: 0, H: 28, h: 27, L: 29, s: 30, S: 31, e: 0, t: 20, T: 22, b: 19, y: 39, p: 37, k: 20 };
+const ARCHER_C = ARCHER.map(r => Array.from(r, ch => ch === '.' ? -1 : LEG[ch]));
+
+// ---------------------------------------------------------------------------
+// Pools (preallocated, reused)
+// ---------------------------------------------------------------------------
+const NP = 600;
+const P_x = new Float32Array(NP), P_y = new Float32Array(NP), P_vx = new Float32Array(NP), P_vy = new Float32Array(NP);
+const P_life = new Float32Array(NP), P_max = new Float32Array(NP), P_g = new Float32Array(NP);
+const P_ramp = new Uint8Array(NP), P_mode = new Uint8Array(NP), P_land = new Uint8Array(NP);
+const RAMPS = [
+  [24, 23, 23, 25, 25],       // 0 straw
+  [35, 39, 39, 40, 40],       // 1 gold spark
+  [34, 33, 32, 7, 6],         // 2 ember
+  [26, 25, 20, 19],           // 3 dust
+  [35, 34, 39, 40],           // 4 charge
+  [9, 7, 6, 5],               // 5 arrow trail
+  [26, 26, 25],               // 6 burlap fluff
+];
+let pHead = 0;
+function spawn(x, y, vx, vy, life, ramp, grav, mode, land) {
+  const i = pHead; pHead = (pHead + 1) % NP;
+  P_x[i] = x; P_y[i] = y; P_vx[i] = vx; P_vy[i] = vy; P_life[i] = life; P_max[i] = life;
+  P_ramp[i] = ramp; P_g[i] = grav; P_mode[i] = mode || 0; P_land[i] = land ? 1 : 0;
+}
+
+const NA = 16; // arrows in flight
+const A_on = new Uint8Array(NA), A_x = new Float32Array(NA), A_y = new Float32Array(NA), A_vx = new Float32Array(NA), A_vy = new Float32Array(NA), A_ch = new Uint8Array(NA), A_t = new Float32Array(NA);
+const NS = 24; // stuck arrows (on dummy)
+const S_on = new Uint8Array(NS), S_lx = new Float32Array(NS), S_ly = new Float32Array(NS), S_a = new Float32Array(NS), S_ch = new Uint8Array(NS);
+const NG = 24; // loose arrows falling / lying on the ground
+const G_on = new Uint8Array(NG), G_x = new Float32Array(NG), G_y = new Float32Array(NG), G_vx = new Float32Array(NG), G_vy = new Float32Array(NG), G_a = new Float32Array(NG), G_va = new Float32Array(NG), G_rest = new Uint8Array(NG), G_life = new Float32Array(NG);
+const NR = 6; // shock rings
+const R_x = new Float32Array(NR), R_y = new Float32Array(NR), R_t = new Float32Array(NR), R_max = new Float32Array(NR), R_rad = new Float32Array(NR);
+const NI = 8; // impact stars
+const I_x = new Float32Array(NI), I_y = new Float32Array(NI), I_t = new Float32Array(NI), I_big = new Uint8Array(NI);
+let ringHead = 0, impHead = 0;
+
+// ---------------------------------------------------------------------------
+// World state
+// ---------------------------------------------------------------------------
+let time = 0, freeze = 0, shake = 0, shakeAmp = 1, tick = 0;
+let dTheta = 0, dOmega = 0, dFlashT = 0;
+const coin = { on: 0, x: 0, y: 0, vx: 0, vy: 0, rest: 0, t: 0, rise: 0 };
+
+const pose = { a: IDLE_A, draw: 0, hx: 3, hy: 2, bx: 0, by: 0, lean: 0 };        // live (60hz)
+const shown = { a: IDLE_A, draw: 0, hx: 3, hy: 2, bx: 0, by: 0, lean: 0 };       // snapped (12fps)
+let nocked = false, aimT = IDLE_A, tgtLy = -16, charged = false, stringWob = 0, chargeP = 0;
+let tipX = 0, tipY = 0; // current nocked arrow tip, for charge particles
+
+const SEQ = [
+  ['idle', 1.1],
+  ['raise', .5, { tgt: -17, charged: 1 }],
+  ['charge', 1.5],
+  ['hold', .35],
+  ['loose', .12],
+  ['recoil', .6],
+  ['lower', .55],
+  ['idle', 1.4],
+  ['cleanup', 1.3],
+  ['idle', .3],
+];
+let si = 0, st = 0;
+
+function solveAngle(x0, y0, x1, y1, v) {
+  const dx = x1 - x0, dy = y0 - y1, v2 = v * v;
+  const disc = v2 * v2 - GRAV * (GRAV * dx * dx + 2 * dy * v2);
+  if (disc < 0) return -0.6;
+  return -Math.atan((v2 - Math.sqrt(disc)) / (GRAV * dx));
+}
+
+function enterState(i) {
+  const s = SEQ[i], k = s[0], o = s[2];
+  if (o && o.tgt !== undefined) {
+    tgtLy = o.tgt; charged = !!o.charged;
+    aimT = solveAngle(AX + 12, GY - 10, DX - 6, GY + tgtLy, charged ? V_CH : V_N);
+  }
+  if (k === 'raise' || k === 'draw' || k === 'charge') nocked = true;
+  if (k === 'loose') fire();
+  if (k === 'cleanup') cleanupNext = 0.25;
+  if (k === 'charge') SFX.charge(s[1]);
+  if (i === 0) resetCycle();
+}
+let cleanupNext = 0;
+
+function resetCycle() {
+  S_on.fill(0); G_on.fill(0); coin.on = 0; charged = false;
+}
+
+// Geometry of the (snapped) pose -> world points
+const geo = { fx: 0, fy: 0, bkx: 0, bky: 0, hx: 0, hy: 0, dx: 1, dy: 0, px: 0, py: 1, L: 9, curv: 3, nx: 0, ny: 0, bob: 0 };
+function computeGeo(p, bob) {
+  const bx0 = AX - 7 + Math.round(p.lean);
+  const by0 = GY - 20 + bob;
+  geo.bob = bob;
+  geo.fx = bx0 + 10; geo.fy = by0 + 10;
+  geo.bkx = bx0 + 8; geo.bky = by0 + 10;
+  geo.dx = Math.cos(p.a); geo.dy = Math.sin(p.a);
+  geo.px = -geo.dy; geo.py = geo.dx;
+  geo.hx = geo.fx + p.hx; geo.hy = geo.fy + p.hy;
+  geo.L = 9 - p.draw * 1.2;
+  geo.curv = 2.6 + p.draw * 2.4;
+  const pull = geo.curv + p.draw * 3.6;
+  geo.nx = geo.hx - geo.dx * pull; geo.ny = geo.hy - geo.dy * pull;
+}
+
+function fire() {
+  computeGeo(pose, 0);
+  const x0 = geo.nx + geo.dx * 12, y0 = geo.ny + geo.dy * 12;
+  const v = charged ? V_CH : V_N;
+  const a = solveAngle(x0, y0, DX - 6, GY + tgtLy, v);
+  for (let i = 0; i < NA; i++) if (!A_on[i]) {
+    A_on[i] = 1; A_x[i] = x0; A_y[i] = y0; A_vx[i] = Math.cos(a) * v; A_vy[i] = Math.sin(a) * v; A_ch[i] = charged ? 1 : 0; A_t[i] = 0;
+    break;
+  }
+  nocked = false;
+  pose.draw = 0; stringWob = 0.25;
+  snapPose();
+  SFX.twang(charged);
+  if (charged) {
+    for (let k = 0; k < 6; k++) spawn(AX + rr(-4, 4), GY, rr(-30, 10), rr(-25, -5), rr(.3, .6), 3, 60, 0, 0);
+    for (let k = 0; k < 10; k++) spawn(x0, y0, rr(20, 90), rr(-40, 40), rr(.15, .35), 1, 0, 0, 0);
+    shake = 6; shakeAmp = 1;
+  }
+}
+
+function hit(i, ly) {
+  const big = A_ch[i] === 1;
+  const hx = A_x[i], hy = A_y[i];
+  const ang = Math.atan2(A_vy[i], A_vx[i]);
+  const sh = Math.round(-ly * Math.tan(dTheta));
+  for (let s = 0; s < NS; s++) if (!S_on[s]) {
+    S_on[s] = 1; S_lx[s] = hx + 2 - DX - sh; S_ly[s] = ly; S_a[s] = ang - dTheta * 0.6; S_ch[s] = big ? 1 : 0; break;
+  }
+  A_on[i] = 0;
+  const lever = clamp(-ly / 18, 0.6, 1.8);
+  dOmega += (big ? 4.4 : 1.7) * lever;
+  freeze = big ? 11 : 4;
+  dFlashT = big ? 0.12 : 0.06;
+  shake = big ? 22 : 7; shakeAmp = big ? 2 : 1;
+  I_x[impHead] = hx; I_y[impHead] = hy; I_t[impHead] = 0; I_big[impHead] = big ? 1 : 0; impHead = (impHead + 1) % NI;
+  const n = big ? 46 : 12;
+  for (let k = 0; k < n; k++) {
+    const back = rand() < 0.3;
+    spawn(hx + rr(-1, 2), hy + rr(-2, 2), back ? rr(-50, -5) : rr(10, big ? 120 : 65), rr(big ? -120 : -75, big ? 10 : -5), rr(1.2, 2.4), 0, 210, 0, 1);
+  }
+  for (let k = 0; k < (big ? 10 : 3); k++) spawn(hx, hy, rr(-20, 40), rr(-40, 0), rr(.3, .7), 6, 40, 0, 0);
+  for (let k = 0; k < (big ? 8 : 3); k++) spawn(DX + rr(-4, 4), GY, rr(-20, 20), rr(-20, -4), rr(.3, .6), 3, 40, 0, 0);
+  if (big) {
+    for (let k = 0; k < 26; k++) { const t = rand() * Math.PI * 2, v = rr(40, 140); spawn(hx, hy, Math.cos(t) * v, Math.sin(t) * v, rr(.25, .6), 1, 60, 0, 0); }
+    R_x[ringHead] = hx; R_y[ringHead] = hy; R_t[ringHead] = 0; R_max[ringHead] = 0.35; R_rad[ringHead] = 16; ringHead = (ringHead + 1) % NR;
+    R_x[ringHead] = hx; R_y[ringHead] = hy; R_t[ringHead] = -0.06; R_max[ringHead] = 0.3; R_rad[ringHead] = 9; ringHead = (ringHead + 1) % NR;
+    coin.on = 1; coin.x = hx; coin.y = hy; coin.vx = -38; coin.vy = -95; coin.rest = 0; coin.t = 0; coin.rise = 0;
+  } else {
+    R_x[ringHead] = hx; R_y[ringHead] = hy; R_t[ringHead] = 0; R_max[ringHead] = 0.14; R_rad[ringHead] = 5; ringHead = (ringHead + 1) % NR;
+  }
+  SFX.thunk(big);
+}
+
+function releaseArrowToGround(x, y, a, vx, vy) {
+  for (let i = 0; i < NG; i++) if (!G_on[i]) {
+    G_on[i] = 1; G_x[i] = x; G_y[i] = y; G_a[i] = a; G_vx[i] = vx; G_vy[i] = vy; G_va[i] = rr(2, 6) * (rand() < .5 ? -1 : 1); G_rest[i] = 0; G_life[i] = 0;
+    return;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Update (fixed 60hz)
+// ---------------------------------------------------------------------------
+function ease(cur, tgt, rate) { return cur + (tgt - cur) * (1 - Math.exp(-rate * DT)); }
+function snapPose() { shown.a = pose.a; shown.draw = pose.draw; shown.hx = pose.hx; shown.hy = pose.hy; shown.bx = pose.bx; shown.by = pose.by; shown.lean = pose.lean; }
+
+function update() {
+  if (shake > 0) shake--;
+  if (freeze > 0) { freeze--; return; }
+  tick++;
+  time += DT;
+
+  // --- sequence ---
+  st += DT;
+  if (st >= SEQ[si][1]) { st -= SEQ[si][1]; si = (si + 1) % SEQ.length; enterState(si); }
+  const k = SEQ[si][0], prog = st / SEQ[si][1];
+
+  // --- pose targets ---
+  let ta = pose.a, tdraw = 0, raised = true, back = 'string', tlean = 0, aRate = 14, dRate = 12;
+  switch (k) {
+    case 'idle': case 'cleanup': ta = IDLE_A; raised = false; back = 'rest'; break;
+    case 'lower': ta = IDLE_A; raised = false; back = 'rest'; aRate = 9; break;
+    case 'raise': ta = aimT; back = 'string'; break;
+    case 'draw': ta = aimT; tdraw = 1; break;
+    case 'charge': ta = aimT; tdraw = 1.3; dRate = 2.2; break;
+    case 'hold': ta = aimT; tdraw = charged ? 1.3 : 1; dRate = 2.2; break;
+    case 'loose': ta = aimT - (charged ? 0.12 : 0.05); back = 'release'; break;
+    case 'reload':
+      ta = aimT; back = prog < 0.55 ? 'quiver' : 'string';
+      if (prog >= 0.55) nocked = true;
+      break;
+    case 'recoil': ta = aimT - (charged ? 0.1 : 0.03); back = 'release'; tlean = charged && prog < 0.6 ? -1 : 0; break;
+  }
+  pose.a = ease(pose.a, ta, aRate);
+  pose.draw = ease(pose.draw, tdraw, dRate);
+  if (k === 'loose' || k === 'recoil' || k === 'reload') pose.draw = Math.min(pose.draw, 0.02);
+  pose.lean = ease(pose.lean, tlean, 18);
+  const thx = raised ? Math.cos(pose.a) * 6 : 3, thy = raised ? Math.sin(pose.a) * 6 : 2;
+  pose.hx = ease(pose.hx, thx, 16); pose.hy = ease(pose.hy, thy, 16);
+  computeGeo(pose, 0);
+  let tbx, tby;
+  if (back === 'string') { tbx = geo.nx - geo.bkx; tby = geo.ny - geo.bky; }
+  else if (back === 'release') { tbx = geo.nx - geo.bkx - geo.dx * 3; tby = geo.ny - geo.bky - 2; }
+  else if (back === 'quiver') { tbx = -6; tby = -8; }
+  else { tbx = 1; tby = 5; }
+  const bRate = back === 'string' && k === 'draw' ? 40 : 22;
+  pose.bx = ease(pose.bx, tbx, bRate); pose.by = ease(pose.by, tby, bRate);
+  if (back === 'string' && (k === 'draw' || k === 'charge' || k === 'hold')) { pose.bx = tbx; pose.by = tby; }
+  if (tick % 5 === 0) snapPose();
+  if (stringWob > 0) stringWob -= DT;
+
+  // --- charge sparks ---
+  chargeP = (k === 'charge') ? prog : (k === 'hold' && charged) ? 1 : 0;
+  if (chargeP > 0) {
+    tipX = geo.nx + geo.dx * 12; tipY = geo.ny + geo.dy * 12;
+    if (tick % 2 === 0) {
+      const t = rand() * Math.PI * 2;
+      spawn(0, 0, t, rr(10, 16), 1, 4, 0, 1, 0);
+    }
+  }
+
+  // --- arrows in flight ---
+  for (let i = 0; i < NA; i++) if (A_on[i]) {
+    A_vy[i] += GRAV * DT; A_x[i] += A_vx[i] * DT; A_y[i] += A_vy[i] * DT; A_t[i] += DT;
+    if (A_ch[i]) { spawn(A_x[i] - A_vx[i] * DT * .5, A_y[i], rr(-15, 5), rr(-10, 10), rr(.18, .4), 1, 0, 0, 0); spawn(A_x[i], A_y[i], 0, 0, .12, 4, 0, 0, 0); }
+    else if (tick % 2 === 0) spawn(A_x[i] - A_vx[i] * DT * 2, A_y[i] - A_vy[i] * DT * 2, 0, 0, .12, 5, 0, 0, 0);
+    const ly = A_y[i] - GY;
+    const surf = DX - 6 + Math.round(-ly * Math.tan(dTheta));
+    if (ly > -32 && ly < -8 && A_x[i] >= surf) { hit(i, Math.round(ly)); continue; }
+    if (A_y[i] >= GY) { A_on[i] = 0; releaseArrowToGround(A_x[i], GY - 1, Math.atan2(A_vy[i], A_vx[i]), 0, 0); }
+    else if (A_x[i] > W + 12) A_on[i] = 0;
+  }
+
+  // --- dummy spring ---
+  dOmega += (-60 * dTheta - 3.4 * dOmega) * DT;
+  dTheta += dOmega * DT;
+  if (dTheta > 0.42) { dTheta = 0.42; dOmega *= -0.3; }
+  if (dTheta < -0.4) { dTheta = -0.4; dOmega *= -0.3; }
+  if (dFlashT > 0) dFlashT -= DT;
+
+  // --- cleanup: arrows drop off the dummy one by one ---
+  if (k === 'cleanup') {
+    cleanupNext -= DT;
+    if (cleanupNext <= 0) {
+      cleanupNext = 0.16;
+      for (let s = NS - 1; s >= 0; s--) if (S_on[s]) {
+        S_on[s] = 0;
+        const sh = Math.round(-S_ly[s] * Math.tan(dTheta));
+        releaseArrowToGround(DX + S_lx[s] + sh - Math.cos(S_a[s]) * 4, GY + S_ly[s], S_a[s] + Math.PI, rr(-18, 4), rr(-20, 0));
+        dOmega -= 0.25;
+        break;
+      }
+    }
+    if (prog > 0.45 && coin.on && !coin.rise) { coin.rise = 1; coin.t = 0; }
+  }
+
+  // --- ground arrows ---
+  for (let i = 0; i < NG; i++) if (G_on[i]) {
+    if (!G_rest[i]) {
+      G_vy[i] += 220 * DT; G_x[i] += G_vx[i] * DT; G_y[i] += G_vy[i] * DT; G_a[i] += G_va[i] * DT;
+      if (G_y[i] >= GY - 1) { G_y[i] = GY - 1; G_rest[i] = 1; G_a[i] = (Math.cos(G_a[i]) > 0 ? 0 : Math.PI) + rr(-0.12, 0.12); SFX.tick(); }
+    }
+    G_life[i] += DT;
+    if (k === 'idle' && si === SEQ.length - 1 && prog > 0.2) G_on[i] = 0;
+  }
+
+  // --- coin ---
+  if (coin.on) {
+    coin.t += DT;
+    if (coin.rise) {
+      coin.y -= 30 * DT;
+      if (coin.t > 0.45) {
+        coin.on = 0;
+        for (let q = 0; q < 12; q++) { const t = q / 12 * Math.PI * 2; spawn(coin.x, coin.y, Math.cos(t) * 40, Math.sin(t) * 40, .35, 1, 0, 0, 0); }
+        SFX.coin(1);
+      }
+    } else if (!coin.rest) {
+      coin.vy += 300 * DT; coin.x += coin.vx * DT; coin.y += coin.vy * DT;
+      if (coin.y >= GY - 2 && coin.vy > 0) {
+        coin.y = GY - 2; coin.vy *= -0.45; coin.vx *= 0.55;
+        SFX.coin(Math.abs(coin.vy) / 95);
+        if (Math.abs(coin.vy) < 16) { coin.rest = 1; coin.vy = 0; }
+      }
+    }
+  }
+
+  // --- particles ---
+  for (let i = 0; i < NP; i++) if (P_life[i] > 0) {
+    P_life[i] -= DT;
+    if (P_mode[i] === 1) { // orbit inward to arrow tip
+      P_vx[i] += 7 * DT; P_vy[i] -= 11 * DT;
+      if (P_vy[i] < 1 || chargeP === 0) { P_life[i] = 0; continue; }
+      P_x[i] = tipX + Math.cos(P_vx[i]) * P_vy[i]; P_y[i] = tipY + Math.sin(P_vx[i]) * P_vy[i] * 0.8;
+      P_life[i] = Math.max(0.01, P_vy[i] / 16);
+      continue;
+    }
+    P_vy[i] += P_g[i] * DT;
+    P_x[i] += P_vx[i] * DT; P_y[i] += P_vy[i] * DT;
+    if (P_land[i] && P_y[i] >= GY && P_vy[i] > 0) { P_y[i] = GY - (rand() < .5 ? 0 : 1); P_vx[i] = 0; P_vy[i] = 0; P_g[i] = 0; }
+  }
+  // campfire embers
+  if (tick % 7 === 0) spawn(FX + rr(-2, 2), GY - 4, rr(-4, 4), rr(-22, -12), rr(.8, 1.6), 2, -4, 0, 0);
+
+  for (let i = 0; i < NR; i++) R_t[i] += DT;
+  for (let i = 0; i < NI; i++) I_t[i] += DT;
+  SFX.ambient();
+}
+
+// ---------------------------------------------------------------------------
+// Render
+// ---------------------------------------------------------------------------
+const STARS = [];
+(function () { const r = rng(7); while (STARS.length < 30) { const x = Math.floor(r() * W), y = Math.floor(r() * 36); if (Math.hypot(x - MOON.x, y - MOON.y) > 13) STARS.push([x, y, r() * 3 + 1, r() * 6.28, r() < 0.15]); } })();
+const CLOUDS = [[20, 14, 34, 1.1], [110, 30, 46, 0.7], [170, 9, 26, 1.5]];
+const FLIES = [];
+(function () { const r = rng(21); for (let i = 0; i < 8; i++) FLIES.push([20 + r() * 160, 54 + r() * 12, r() * 6.28, 0.5 + r() * 0.6]); })();
+
+function drawStars() {
+  for (const s of STARS) {
+    const v = Math.sin(time * s[2] + s[3]);
+    const c = v > 0.55 ? 10 : v > -0.3 ? 9 : 6;
+    px(s[0], s[1], c);
+    if (s[4] && v > 0.85) { px(s[0] - 1, s[1], 6); px(s[0] + 1, s[1], 6); px(s[0], s[1] - 1, 6); px(s[0], s[1] + 1, 6); }
+  }
+}
+function drawClouds() {
+  for (const c of CLOUDS) {
+    const span = W + c[2] * 2;
+    const x0 = ((c[0] + time * c[3]) % span + span) % span - c[2];
+    const len = c[2];
+    for (let row = 0; row < 3; row++) {
+      const w = row === 0 ? len * 0.55 : row === 1 ? len : len * 0.75;
+      const ox = row === 0 ? len * 0.2 : row === 2 ? len * 0.12 : 0;
+      const y = c[1] + row;
+      for (let i = 0; i < w; i++) {
+        const x = Math.round(x0 + ox + i);
+        const edge = Math.min(i, w - i) / 5;
+        if (edge < 1 && bay(x, y) > edge) continue;
+        px(x, y, row === 2 ? 4 : 5);
+      }
+    }
+  }
+}
+function vnoise(x, y) {
+  const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
+  const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+  const a = hash(xi, yi), b = hash(xi + 1, yi), c = hash(xi, yi + 1), d = hash(xi + 1, yi + 1);
+  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+}
+function drawFog(y0, y1, c, dens, speed, c2) {
+  const ox = Math.floor(time * speed);
+  const mid = (y0 + y1) / 2, half = (y1 - y0) / 2 + 0.5;
+  for (let y = y0; y <= y1; y++) {
+    const k = 1 - Math.abs(y - mid) / half;
+    for (let x = 0; x < W; x++) {
+      const n = vnoise((x + ox) / 11, y / 2.5 + c * 7) * k;
+      if (n > 1 - dens) px(x, y, c2 !== undefined && n > 1.1 - dens * 0.55 ? c2 : c);
+    }
+  }
+}
+
+let flameStep = -1; const FL = new Float32Array(9);
+function drawFire() {
+  const step = Math.floor(time * 12);
+  if (step !== flameStep) { flameStep = step; for (let i = 0; i < 9; i++) FL[i] = hash(step, i); }
+  // stones + logs
+  px(FX - 5, GY, 11); px(FX + 5, GY, 11); px(FX - 4, GY - 1, 12); px(FX + 4, GY - 1, 12);
+  line(FX - 4, GY, FX + 3, GY - 2, 20); line(FX + 4, GY, FX - 3, GY - 2, 21);
+  // flames
+  for (let i = 0; i < 9; i++) {
+    const dx = i - 4, base = 9 - Math.abs(dx) * 2.1;
+    if (base <= 0) continue;
+    const h = Math.round(base + FL[i] * 3);
+    for (let y = 0; y < h; y++) {
+      const f = y / h;
+      const c = f > 0.72 ? 32 : f > 0.38 ? 33 : 34;
+      if (f > 0.8 && ((y + i + step) & 1)) continue;
+      px(FX + dx, GY - 2 - y, Math.abs(dx) >= 3 ? 32 : c);
+    }
+  }
+  if (FL[4] > 0.5) px(FX + (FL[2] > .5 ? 1 : -1), GY - 13, 32);
+}
+function fireGlow() { return 0.85 + 0.15 * Math.sin(time * 17) * Math.sin(time * 5.3); }
+function drawFireLight() {
+  const rad = 17 * fireGlow();
+  for (let x = FX - 22; x <= FX + 22; x++) {
+    const d = Math.abs(x - FX) / rad;
+    if (d > 1) continue;
+    if (bay(x, GY) < 1 - d) px(x, GY, d < 0.45 ? 24 : 18);
+    if (bay(x, GY + 1) < 0.9 - d) px(x, GY + 1, 17);
+    if (bay(x, GY - 1) < 0.5 - d && hash(x, 3) < 0.4) px(x, GY - 1, 18);
+  }
+}
+function drawBanner() {
+  R(BX, 44, 1, GY - 44, 21); px(BX, 43, 39); R(BX, 45, 8, 1, 20);
+  const ph = Math.floor(time * 5);
+  for (let r = 0; r < 12; r++) {
+    const off = Math.round(Math.sin(r * 0.55 + ph * 1.3) * (r / 11) * 1.2);
+    let x0 = BX + 1 + off, w = 7;
+    if (r === 10) { px(x0, 46 + r, 36); px(x0 + 1, 46 + r, 36); px(x0 + 5, 46 + r, 41); px(x0 + 6, 46 + r, 41); continue; }
+    if (r === 11) { px(x0, 46 + r, 36); px(x0 + 6, 46 + r, 41); continue; }
+    R(x0, 46 + r, w - 2, 1, 36); R(x0 + w - 2, 46 + r, 2, 1, 41);
+    if (r === 3) { px(x0 + 1, 46 + r, 39); px(x0 + 3, 46 + r, 39); px(x0 + 5, 46 + r, 39); }
+    if (r === 4 || r === 5) R(x0 + 1, 46 + r, 5, 1, r === 5 ? 40 : 39);
+  }
+}
+
+function drawDummy() {
+  const tan = Math.tan(dTheta);
+  const spr = dFlashT > 0 ? dFlash : dSpr;
+  for (let r = 0; r < DSH; r++) {
+    const hgt = DSH - 1 - r;
+    const o = Math.round(hgt * tan);
+    g.drawImage(spr, 0, r, DSW, 1, DX - 12 + o, GY - (DSH - 1) + r, DSW, 1);
+  }
+}
+function drawArrow(tx, ty, ang, len, gold, skipHead) {
+  const dx = Math.cos(ang), dy = Math.sin(ang);
+  const blink = (tick >> 2) & 1;
+  for (let i = skipHead ? 2 : 0; i < len; i++) {
+    const c = i < 2 ? (gold ? (blink ? 35 : 39) : (i === 0 ? 38 : 38))
+      : i >= len - 2 ? (i === len - 1 ? 35 : 36)
+      : (gold ? 39 : 21);
+    px(tx - dx * i, ty - dy * i, c);
+  }
+}
+function drawStuck() {
+  const tan = Math.tan(dTheta);
+  for (let s = 0; s < NS; s++) if (S_on[s]) {
+    const x = DX + S_lx[s] + Math.round(-S_ly[s] * tan), y = GY + S_ly[s];
+    drawArrow(x, y, S_a[s] + dTheta * 0.6, 10, S_ch[s] === 1, true);
+  }
+}
+function drawGroundArrows() {
+  for (let i = 0; i < NG; i++) if (G_on[i]) drawArrow(G_x[i] + Math.cos(G_a[i]) * 4, G_y[i] + Math.sin(G_a[i]) * 4, G_a[i], 9, false, false);
+}
+
+function drawArcher() {
+  const k = SEQ[si][0];
+  const bob = (k === 'idle' || k === 'cleanup') ? (Math.floor(time * 2.2) & 1) : 0;
+  computeGeo(shown, 0);
+  const bx0 = AX - 7 + Math.round(shown.lean), by0 = GY - 20;
+  const fg = fireGlow();
+  const rimL = fg > 0.9 ? 8 : 7;
+  const rimR = chargeP > 0.25 ? ((tick >> 2) & 1 ? 39 : 9) : (k === 'loose' && charged ? 35 : -1);
+
+  // quiver (behind)
+  line(bx0 + 0, by0 + 15 + bob, bx0 + 2, by0 + 5 + bob, 21);
+  px(bx0 + 1, by0 + 3 + bob, 36); px(bx0 + 2, by0 + 2 + bob, 35); px(bx0 + 3, by0 + 3 + bob, 36); px(bx0 + 0, by0 + 4 + bob, 35);
+
+  // bow arm (far side)
+  const hjit = chargeP > 0.7 ? ((tick >> 2) & 1) : 0;
+  const hx = Math.round(geo.hx), hy = Math.round(geo.hy) + hjit;
+  line(geo.fx, geo.fy + bob, hx, hy, 27);
+  line(geo.fx, geo.fy + 1 + bob, hx, hy + 1, 27);
+
+  // body
+  for (let r = 0; r < 21; r++) {
+    const row = ARCHER_C[r], yy = by0 + r + (r < 16 ? bob : 0);
+    let first = -1, last = -1;
+    for (let c = 0; c < row.length; c++) { const v = row[c]; if (v < 0) continue; if (first < 0) first = c; last = c; px(bx0 + c, yy, v); }
+    if (r > 0 && r < 16) {
+      if (fg > 0.8 && row[first + 1] >= 0 && r > 1) px(bx0 + first + 1, yy, rimL);
+      if (rimR >= 0 && r < 12 && row[last - 1] >= 0 && ARCHER[r][last - 1] !== 's' && ARCHER[r][last - 1] !== 'e') px(bx0 + last - 1, yy, rimR);
+    }
+  }
+  // cloak hem sway
+  if (bob) px(bx0 + 2, by0 + 16, 27);
+
+  // bow
+  const L = geo.L, cu = geo.curv;
+  const dxA = geo.dx, dyA = geo.dy, pxA = geo.px, pyA = geo.py;
+  const steps = 28;
+  for (let i = 0; i <= steps; i++) {
+    const s = i / steps * 2 - 1;
+    const x = hx + pxA * s * L - dxA * cu * s * s, y = hy + pyA * s * L - dyA * cu * s * s;
+    px(x, y, Math.abs(s) > 0.82 ? 24 : 22);
+  }
+  const tax = hx - pxA * L - dxA * cu, tay = hy - pyA * L - dyA * cu;
+  const tbx = hx + pxA * L - dxA * cu, tby = hy + pyA * L - dyA * cu;
+  let nx = geo.nx + (hx - geo.hx), ny = geo.ny + (hy - geo.hy);
+  if (stringWob > 0 && !nocked) { const w = Math.sin(stringWob * 90) * stringWob * 6; nx += dxA * w; ny += dyA * w; }
+  line(tax, tay, nx, ny, 24);
+  line(nx, ny, tbx, tby, 24);
+  px(hx, hy, 30);
+
+  // nocked arrow
+  if (nocked && k !== 'idle' && k !== 'lower' && k !== 'cleanup') {
+    const gold = charged && (k === 'charge' || k === 'hold');
+    drawArrow(nx + dxA * 12, ny + dyA * 12, shown.a, 13, gold, false);
+    if (gold && chargeP > 0.5 && (tick >> 1) & 1) px(nx + dxA * 13, ny + dyA * 13, 35);
+  }
+
+  // drawing arm (near side)
+  const bkx = geo.bkx, bky = geo.bky + bob;
+  const bhx = Math.round(geo.bkx + shown.bx), bhy = Math.round(geo.bky + shown.by) + (k === 'idle' || k === 'cleanup' ? bob : 0);
+  line(bkx, bky, bhx, bhy, 28);
+  line(bkx - 1, bky, bhx - 1, bhy, 27);
+  px(bhx, bhy, 30);
+}
+
+function drawCoin() {
+  if (!coin.on) return;
+  const x = Math.round(coin.x), y = Math.round(coin.y);
+  let w = 3;
+  if (!coin.rest || coin.rise) w = [3, 2, 1, 2][Math.floor(coin.t * 14) & 3];
+  if (w === 3) { R(x - 1, y - 1, 3, 3, 39); px(x - 1, y - 1, 35); px(x + 1, y + 1, 40); px(x - 1, y + 1, 40); px(x + 1, y - 1, 39); }
+  else if (w === 2) { R(x - 1, y - 1, 2, 3, 39); R(x, y - 1, 1, 3, 40); }
+  else R(x, y - 1, 1, 3, 40);
+  if (coin.rest && !coin.rise && (coin.t % 0.8) < 0.1) { px(x, y - 3, 35); px(x - 2, y - 1, 35); px(x + 2, y - 1, 35); px(x, y - 2, 34); }
+}
+function drawParticles() {
+  for (let i = 0; i < NP; i++) if (P_life[i] > 0) {
+    const ramp = RAMPS[P_ramp[i]];
+    const f = 1 - P_life[i] / P_max[i];
+    px(P_x[i], P_y[i], ramp[Math.min(ramp.length - 1, Math.floor(f * ramp.length))]);
+  }
+}
+function drawRings() {
+  for (let i = 0; i < NR; i++) {
+    const t = R_t[i];
+    if (t < 0 || t > R_max[i]) continue;
+    const f = t / R_max[i], rad = 2 + f * R_rad[i];
+    const c = f < 0.3 ? 35 : f < 0.65 ? 39 : 40;
+    const n = Math.ceil(rad * 6);
+    for (let q = 0; q < n; q++) {
+      if (f > 0.5 && (q & 1)) continue;
+      const a = q / n * Math.PI * 2;
+      px(R_x[i] + Math.cos(a) * rad, R_y[i] + Math.sin(a) * rad * 0.8, c);
+    }
+  }
+}
+function drawImpacts() {
+  for (let i = 0; i < NI; i++) {
+    const t = I_t[i]; if (t > (I_big[i] ? 0.2 : 0.1)) continue;
+    const x = Math.round(I_x[i]), y = Math.round(I_y[i]);
+    const s = I_big[i] ? (t < 0.08 ? 5 : 3) : (t < 0.05 ? 3 : 2);
+    for (let k = 1; k <= s; k++) { px(x - k, y, 35); px(x, y - k, 35); px(x, y + k, 35); px(x - k, y - k, k < s ? 34 : 39); px(x - k, y + k, k < s ? 34 : 39); }
+    px(x, y, 35);
+  }
+}
+function drawFireflies() {
+  for (const f of FLIES) {
+    const x = f[0] + Math.sin(time * f[3] + f[2]) * 12, y = f[1] + Math.sin(time * f[3] * 1.7 + f[2] * 2) * 4;
+    const b = Math.sin(time * 2.3 + f[2] * 3);
+    if (b > 0.2) px(x, y, b > 0.7 ? 34 : 40);
+  }
+}
+
+const wImg = g.createImageData(W, H - WY);
+function drawWater() {
+  const srcTop = 2 * WY - H;
+  const src = g.getImageData(0, srcTop, W, WY - srcTop).data;
+  const out = wImg.data;
+  for (let y = WY; y < H; y++) {
+    const depth = y - WY;
+    const sy = (2 * WY - 1 - y) - srcTop;
+    const amp = 0.5 + depth * 0.055;
+    const dx = Math.round(Math.sin(y * 0.8 - time * 2.4) * amp + Math.sin(y * 0.33 + time * 1.3) * 0.6);
+    for (let x = 0; x < W; x++) {
+      const sx = clamp(x + dx, 0, W - 1);
+      const si4 = (sy * W + sx) * 4;
+      const key = (src[si4] << 16) | (src[si4 + 1] << 8) | src[si4 + 2];
+      let v = WATER_MAP.get(key);
+      if (v === undefined) v = 0x0c1630;
+      const o = ((y - WY) * W + x) * 4;
+      out[o] = v >> 16; out[o + 1] = (v >> 8) & 255; out[o + 2] = v & 255; out[o + 3] = 255;
+    }
+  }
+  g.putImageData(wImg, 0, WY);
+  curFill = -1;
+  // shoreline
+  for (let x = 0; x < W; x++) if (hash(x, Math.floor(time * 3)) < 0.12) px(x, WY, 5);
+  // moon + fire glints
+  const ts = Math.floor(time * 7);
+  for (let y = WY + 2; y < H; y += 2) {
+    const d = y - WY;
+    const spread = 2 + d * 0.28;
+    const h1 = hash(y, ts), h2 = hash(y + 99, ts);
+    if (h1 > 0.35) {
+      const x = Math.round(MOON.x + (h2 - 0.5) * spread * 2);
+      const len = 1 + Math.floor(hash(y, ts + 7) * (d < 12 ? 4 : 3));
+      R(x, y, len, 1, d < 10 ? 10 : 9);
+    }
+    if (d < 18 && h2 > 0.45) {
+      const x = Math.round(FX + (h1 - 0.5) * (2 + d * 0.35) * 2);
+      R(x, y, 1 + (h1 > 0.8 ? 1 : 0), 1, d < 8 ? 33 : 32);
+    }
+  }
+}
+
+let shx = 0, shy = 0;
+function render() {
+  use(g);
+  g.drawImage(bgFar, 0, 0);
+  drawStars();
+  drawClouds();
+  drawFog(55, 64, 5, 0.62, 3, 6);
+  g.drawImage(bgMid, 0, 0);
+  curFill = -1;
+  drawFog(64, 69, 4, 0.5, -5);
+  drawFireLight();
+  drawBanner();
+  drawFire();
+  drawDummy();
+  drawStuck();
+  drawGroundArrows();
+  drawArcher();
+  for (let i = 0; i < NA; i++) if (A_on[i]) drawArrow(A_x[i], A_y[i], Math.atan2(A_vy[i], A_vx[i]), A_ch[i] ? 13 : 11, A_ch[i] === 1, false);
+  drawCoin();
+  drawParticles();
+  drawRings();
+  drawImpacts();
+  drawFireflies();
+  drawWater();
+  if (shake > 0) {
+    const a = shake > 8 ? shakeAmp : 1;
+    shx = ((shake >> 1) & 1 ? a : -a); shy = (shake & 1) ? a : 0;
+  } else { shx = 0; shy = 0; }
+}
+
+function blit() {
+  const cw = cv.width, ch = cv.height;
+  const s = Math.max(1, Math.floor(Math.min(cw / W, ch / H)));
+  const ox = Math.floor((cw - W * s) / 2), oy = Math.floor((ch - H * s) / 2);
+  dc.fillStyle = '#07060f'; dc.fillRect(0, 0, cw, ch);
+  dc.imageSmoothingEnabled = false;
+  dc.drawImage(off, ox + shx * s, oy + shy * s, W * s, H * s);
+}
+function resize() {
+  const dpr = window.devicePixelRatio || 1;
+  cv.width = Math.floor(innerWidth * dpr); cv.height = Math.floor(innerHeight * dpr);
+}
+addEventListener('resize', resize); resize();
+
+// ---------------------------------------------------------------------------
+// Sound (synthesised, opt-in)
+// ---------------------------------------------------------------------------
+let AC = null, master = null, sfxOn = false, noiseBuf = null, windNode = null;
+function initAudio() {
+  AC = new (window.AudioContext || window.webkitAudioContext)();
+  master = AC.createGain(); master.gain.value = 0.55; master.connect(AC.destination);
+  noiseBuf = AC.createBuffer(1, AC.sampleRate, AC.sampleRate);
+  const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  const src = AC.createBufferSource(); src.buffer = noiseBuf; src.loop = true;
+  const f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 380;
+  windNode = AC.createGain(); windNode.gain.value = 0.05;
+  src.connect(f).connect(windNode).connect(master); src.start();
+}
+function tone(type, f0, f1, dur, vol, delay) {
+  const t = AC.currentTime + (delay || 0);
+  const o = AC.createOscillator(), gg = AC.createGain();
+  o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+  gg.gain.setValueAtTime(vol, t); gg.gain.exponentialRampToValueAtTime(0.0008, t + dur);
+  o.connect(gg).connect(master); o.start(t); o.stop(t + dur + 0.05);
+}
+function noise(dur, vol, freq, type, delay) {
+  const t = AC.currentTime + (delay || 0);
+  const s = AC.createBufferSource(); s.buffer = noiseBuf;
+  const f = AC.createBiquadFilter(); f.type = type || 'lowpass'; f.frequency.value = freq;
+  const gg = AC.createGain(); gg.gain.setValueAtTime(vol, t); gg.gain.exponentialRampToValueAtTime(0.0008, t + dur);
+  s.connect(f).connect(gg).connect(master); s.start(t, Math.random() * 0.5); s.stop(t + dur + 0.05);
+}
+const SFX = {
+  on() { return sfxOn && AC && !debugT; },
+  twang(big) { if (!this.on()) return; tone('triangle', big ? 210 : 280, big ? 70 : 110, big ? 0.3 : 0.16, big ? 0.35 : 0.22); noise(0.05, 0.25, 2500, 'highpass'); if (big) noise(0.25, 0.2, 1200, 'bandpass', 0.02); },
+  thunk(big) { if (!this.on()) return; noise(big ? 0.3 : 0.1, big ? 0.9 : 0.5, big ? 700 : 1100); tone('sine', big ? 110 : 160, big ? 38 : 70, big ? 0.35 : 0.1, big ? 0.8 : 0.4); if (big) noise(0.5, 0.25, 200, 'lowpass', 0.05); },
+  coin(v) { if (!this.on()) return; const a = 0.05 * clamp(v, 0.3, 1); tone('square', 1568, 1568, 0.06, a); tone('square', 2093, 2093, 0.2, a, 0.06); },
+  charge(dur) { if (!this.on()) return; tone('sine', 220, 880, dur + 0.3, 0.08); tone('triangle', 330, 1320, dur + 0.3, 0.03); },
+  tick() { if (!this.on()) return; noise(0.03, 0.15, 3000, 'highpass'); tone('triangle', 900, 500, 0.04, 0.05); },
+  ambient() { if (!this.on()) return; if (rand() < 0.035) noise(0.02, rr(0.03, 0.1), rr(1500, 4000), 'bandpass'); },
+};
+const hint = document.getElementById('hint');
+addEventListener('pointerdown', () => {
+  if (!AC) initAudio();
+  sfxOn = !sfxOn;
+  if (AC.state === 'suspended') AC.resume();
+  master.gain.value = sfxOn ? 0.55 : 0;
+  hint.textContent = (sfxOn ? 'sound on' : 'sound off') + ' · S: slow-mo · space: pause';
+});
+let slow = false, paused = false;
+addEventListener('keydown', e => {
+  if (e.code === 'KeyS') slow = !slow;
+  if (e.code === 'Space') { paused = !paused; e.preventDefault(); }
+});
+
+// ---------------------------------------------------------------------------
+// Main loop (fixed timestep; ?t=seconds renders a single deterministic frame)
+// ---------------------------------------------------------------------------
+const debugT = parseFloat(new URLSearchParams(location.search).get('t'));
+enterState(0);
+if (!isNaN(debugT)) {
+  const n = Math.round(debugT * 60);
+  for (let i = 0; i < n; i++) update();
+  render(); blit();
+  hint.style.display = 'none';
+} else {
+  let acc = 0, last = performance.now();
+  function frame(now) {
+    let dt = Math.min(0.1, (now - last) / 1000); last = now;
+    if (!paused) acc += slow ? dt * 0.25 : dt;
+    while (acc >= DT) { update(); acc -= DT; }
+    render(); blit();
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
+</script>
+</body>
+</html>

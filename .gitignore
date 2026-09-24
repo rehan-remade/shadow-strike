@@ -1,0 +1,20 @@
+# Unity
+unity/[Ll]ibrary/
+unity/[Tt]emp/
+unity/[Oo]bj/
+unity/[Bb]uild/
+unity/[Bb]uilds/
+unity/[Ll]ogs/
+unity/[Uu]ser[Ss]ettings/
+unity/*.csproj
+unity/*.sln
+unity/.vs/
+*.pidb.meta
+*.pdb.meta
+
+# generated
+pipeline/bake.html
+prototype/.render/
+*.mp4
+node_modules/
+.DS_Store
