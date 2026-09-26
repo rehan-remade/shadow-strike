@@ -62,6 +62,7 @@ darkens while the effects stay bright. All of it is drawn one integer pixel at a
 chain through the woods to the **King Shroom**.
 
 - **Four maps:** *Crownhollow* (town), *Mushroom Grove* (Lv 1–5), *Hollow Deep* (Lv 5–9) and the *Royal Glade* boss arena.
+- **A three-stage boss:** King Shroom telegraphs every stomp and spore with blinking ground markers. At 66% he calls the *Spore Storm* (double stomps, spore rain, capling adds); at 33% he makes his *Final Stand* (red, faster, triple stomps and a three-ring Quake Slam).
 - **MapleStory movement:** jump up through platforms, press Down+Jump to drop through, climb ropes and ladders, Flash Jump in mid-air, and press Up at portals.
 - **Five classes:** Hero, Arch Mage, Bishop, Bowmaster and Night Lord, each with its own sprite sheet, four skills and a mobility move (see below). Skills unlock as you level and cost MP.
 - **Monsters:** Shellbacks, Caplings, Stumpies and Wisps. They patrol and aggro, show HP bars when hit, and drop mesos and items.
@@ -78,7 +79,7 @@ Pick a class when you start a new game. Each class ports its prototype skill loo
 |---|---|---|---|---|---|
 | **Hero** (warrior) | Slash | Rush (charge that carries monsters) | Dragon Fury | Worldreaver (ground slam, erupting fissures) | Leap |
 | **Arch Mage** (magician) | Ice Bolt | Blizzard | Meteor | Ice Strike | Teleport (aim with the arrows) |
-| **Bishop** (priest) | Holy Arrow | Angel Ray | Genesis | Heal | Teleport (aim with the arrows) |
+| **Bishop** (priest) | Holy Arrow | Angel Ray (an angel pours a holy beam) | Genesis | Heal | Teleport (aim with the arrows) |
 | **Bowmaster** (archer) | Arrow | Power Shot | Hurricane | Arrow Bomb | Double Jump |
 | **Night Lord** (thief) | Triple Throw | Avenger | Assassinate | Shadow Partner | Flash Jump |
 
@@ -95,6 +96,7 @@ Pick a class when you start a new game. Each class ports its prototype skill loo
 | **J · K · L · U** | Basic attack and the three class skills (see the table above) |
 | **1 · 2** | Red / blue potion |
 | **Esc** | Help and pause (**Q** saves and quits to the title) |
+| type **MAPLE** | Cheat: jump to level 30 with every skill unlocked |
 
 ---
 

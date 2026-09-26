@@ -347,7 +347,7 @@
     px(sx - 2, sy, C.critR); px(sx - 1, sy, C.critP); px(sx, sy, 35); px(sx + 1, sy, C.critP); px(sx + 2, sy, C.critR);
     px(sx - 1, sy + 1, C.critR); px(sx, sy + 1, C.critP); px(sx + 1, sy + 1, C.critR); px(sx, sy + 2, C.critP);
     const c = mk(5, 5); c.getContext('2d').drawImage(off, 20, 20, 5, 5, 0, 0, 5, 5); png('critstar', c); }
-  for (const name of ['AVENGER', 'ASSASSINATE', 'SHADOW PARTNER', 'KING SHROOM', 'BOSS CLEAR', 'RUSH', 'WORLDREAVER', 'DRAGON FURY', 'BLIZZARD', 'METEOR', 'ICE STRIKE', 'ANGEL RAY', 'GENESIS', 'HEAL', 'POWER SHOT', 'HURRICANE', 'ARROW BOMB']) {
+  for (const name of ['AVENGER', 'ASSASSINATE', 'SHADOW PARTNER', 'KING SHROOM', 'BOSS CLEAR', 'SPORE STORM', 'FINAL STAND', 'RUSH', 'WORLDREAVER', 'DRAGON FURY', 'BLIZZARD', 'METEOR', 'ICE STRIKE', 'ANGEL RAY', 'GENESIS', 'HEAL', 'POWER SHOT', 'HURRICANE', 'ARROW BOMB']) {
     const key = 'call_' + name.split(' ')[0].toLowerCase();
     const sh = Sheet(key, 192, 18, 8, { y: 2, fps: 30 });
     for (let i = 0; i < 69; i++) { clearG(); callName = name; callT = i / 30; tick = i * 2; drawCallout(); sh.add(off, 0, 2); }

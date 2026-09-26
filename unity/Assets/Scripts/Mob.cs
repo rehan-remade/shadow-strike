@@ -37,7 +37,8 @@ public class Mob : ITarget
     public float x, y, hp;
     float vx, vy, actT, stateT, flashT, hpBarT, respawnT, seed, knock;
     int face = -1;
-    bool air, aggro;
+    bool air, aggro, dropIn;
+    public bool summoned;      // boss adds: drop in from the sky, never respawn
 
     public Mob(MobDef def, Foothold f, Transform root)
     {
@@ -74,6 +75,12 @@ public class Mob : ITarget
     public bool Grind { get { return false; } }
     public void StickStar(float sx, float sy, bool clone) { }
     public void Mark() { flashT = 0.15f; }
+    public void Summon(float sx)
+    {
+        summoned = true; x = Mathf.Clamp(sx, fh.x0 + 6, fh.x1 - 6); y = fh.y + 80; vy = 0; dropIn = true; aggro = true;
+        s = S.Move; actT = Px.Range(0.6f, 1.2f); face = Game.I.player.x < x ? -1 : 1; anim.Play("move", true);
+    }
+    public void Vanish() { if (Active) { s = S.Gone; sr.enabled = false; hpFrame.enabled = hpFill.enabled = false; Game.I.fxs.Play("puff", x, y + d.h / 2, false, 0, -1, false, 18); } }
     public void Drag(float toX) { if (Active) x = Mathf.Clamp(toX, fh.x0 + 6, fh.x1 - 6); }
 
     public void Hit(float hx, float hy, HitOpt o, int dir)
@@ -114,6 +121,7 @@ public class Mob : ITarget
         switch (s)
         {
             case S.Gone:
+                if (summoned) return;
                 respawnT -= Px.DT;
                 if (respawnT <= 0) Respawn(true);
                 return;
@@ -139,6 +147,11 @@ public class Mob : ITarget
         if (s != S.Die)
         {
             float spd = s == S.Move ? d.speed * (aggro ? 1.3f : 1f) : 0;
+            if (dropIn)
+            {
+                vy -= 380 * Px.DT; y += vy * Px.DT; spd = 0;
+                if (y <= fh.y) { y = fh.y; dropIn = false; vy = 0; G.parts.Burst(x, y + 1, 8, Particles.DUST, 50, 0.4f, 80, false, false, 0, Mathf.PI); }
+            }
             if (d.hop)
             {
                 if (!air && s == S.Move) { vy = 95; air = true; }
@@ -151,7 +164,7 @@ public class Mob : ITarget
             if (x < lo) { x = lo; face = 1; } else if (x > hi) { x = hi; face = -1; }
             if (s == S.Move || s == S.Stand) anim.Tick(); else if (s == S.Hit) anim.Tick();
             // touch damage
-            if (Active && P.CanBeHit && Mathf.Abs(P.x - x) < d.w / 2f + 3 && P.y < y + d.h - 2 && P.y + 18 > y)
+            if (Active && !dropIn && P.CanBeHit && Mathf.Abs(P.x - x) < d.w / 2f + 3 && P.y < y + d.h - 2 && P.y + 18 > y)
                 P.Hurt(Px.Roll(d.atk), P.x < x ? -1 : 1);
         }
         // render

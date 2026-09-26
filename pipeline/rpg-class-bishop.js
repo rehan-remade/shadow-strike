@@ -181,79 +181,89 @@ window.RPG_CLASS_BISHOP = function (BK) {
   }
 
   // ---------------------------------------------------------------- back view (climb)
-  const LB = Object.assign({}, LG);
-  const BHEAD = sprite([
-    '...............',
-    '.......W.......',
+  // Seen from behind on a rope that runs up the anchor column (PX). Hand over hand: one arm reaches high and grips
+  // above the mitre, the other is bent with the fist on the rope at chest height; they swap every step. The same-side
+  // knee lifts (hem hitches up, the foot tucks), the other foot hangs; in the pull frames both feet clamp the rope.
+  const LB = Object.assign({}, LG, { o: C.gold, x: C.robeW2 });
+  const BHEAD = sprite([   // 15 wide, column 7 = PX. Mitre back: white with a gold orphrey stripe, gold band.
+    '.......w.......',   // 0 mitre tip
     '......wGW......',
     '......wGW......',
     '.....wwGWW.....',
     '.....wwGWW.....',
     '.....wwGWW.....',
-    '.....GGGGG.....',
-    '.....gBhhg.....',
-    '.....gBhhg.....',
-    '.....ghhhg.....',
+    '.....GGGGG.....',   // 6 band
+    '.....gGYGg.....',   // 7 band lower
+    '....hBBBBBh....',   // 8 white hair under the mitre
+    '.....hBBBh.....',   // 9 nape
   ], LB);
   const BROBE = sprite([
-    '....dGwWwGd....',   // 11
-    '...dwwGWGwwd...',
-    '...dwwWGWwwd...',
-    '...dwwWGWwwd...',
-    '..dwwWWGWWwwd..',
-    '..dwwWWGWWwwd..',
-    '..dwwWWGWWwwd..',
-    '.dwwWWWGWWWwwd.',
-    '.dwwWWWGWWWwwd.',
-    '.GGGGGGGGGGGGG.',   // 20
-    '..kdddddddddk..',   // 21
+    '...dwwGGGwwd...',   // 0 shoulders + gold collar
+    '..dwwWGGGWwwd..',   // 1 yoke of the chasuble orphrey
+    '..dwwWWGWWwwd..',   // 2
+    '..dwwWWGWWwwd..',   // 3
+    '..dwwWWGWWwwd..',   // 4
+    '..dwwWWGWWwwd..',   // 5
+    '.dwwwWWGWWwwwd.',   // 6
+    '.dwwwWWGWWwwwd.',   // 7
+    '.dwwwWWGWWwwwd.',   // 8
+    'dwwwwWWGWWwwwwd',   // 9
+    'GGGGGGGGGGGGGGG',   // 10 gold hem
+    '.kddddddddddddk',   // 11 underside
   ], LB);
+  function Lay() { return Grid(FW, FH); }
+  function comp(G, L, ol) { if (ol) L.outline(); for (let i = 0; i < L.a.length; i++) if (L.a[i] >= 0) G.a[i] = L.a[i]; }
+  // thick 2px sleeve segment: lit upper/outer edge, mid body, shaded underside
+  function sleeve(L, x0, y0, x1, y1, side) {
+    gl(L, x0, y0 + 1, x1, y1 + 1, C.robeW2);
+    gl(L, x0 - side, y0, x1 - side, y1, C.robeW1);
+    gl(L, x0, y0, x1, y1, C.robeW0);
+  }
+  // k0: left hand high, right fist at the chest, left knee up. k1: the pull (body rises 1, hands slide 2 down the
+  // body, feet clamp the rope). k2/k3 mirror it.
   function bishopBack(k) {
-    const G = Grid(FW, FH), x0 = PX - 7, y0 = PY - 22, bob = k & 1;
-    const sway = k === 0 ? -1 : k === 2 ? 1 : 0;
-    for (let r = 21; r >= 11; r--) {
-      const y = y0 + r + (r <= 13 ? bob : 0), d = r >= 18 ? sway : 0;
-      BROBE[r - 11].forEach((c, i) => { if (c >= 0) G.set(x0 + i + d, y, c); });
+    const G = Grid(FW, FH), x0 = PX - 7, lift = k & 1;
+    const yR = PY - 12 - lift, yH = yR - 10, hi = k < 2 ? -1 : 1;       // hi: which side holds the high grip (-1 left)
+    const knee = k === 0 ? -1 : k === 2 ? 1 : 0, sway = [-1, 0, 1, 0][k];
+    const fy0 = PY - lift;
+    // ---- feet (under the hem)
+    const foot = (x, y, tuck) => { G.set(x, y, C.goldD); G.set(x + 1, y, tuck ? C.robeW3 : C.goldD); G.set(x, y - 1, C.robeW3); G.set(x + 1, y - 1, C.robeW3); };
+    if (knee === 0) { foot(PX - 2, fy0 + 1); foot(PX + 1, fy0 + 1); }                 // both feet clamp the rope
+    else { foot(knee < 0 ? PX + 1 : PX - 2, PY); foot(knee < 0 ? PX - 5 + sway : PX + 4 + sway, PY - 1, true); }
+    // ---- robe (hem sways; on the raised-knee side the outer corner hitches up)
+    for (let r = 11; r >= 0; r--) {
+      const y = yR + r, d = r >= 8 ? sway : r >= 6 ? Math.round(sway / 2) : 0;
+      BROBE[r].forEach((c, i) => {
+        if (c < 0) return;
+        const o = knee < 0 ? 6 - i : knee > 0 ? i - 8 : -1;         // distance into the raised side
+        if (r === 11 && o >= 2) return;                                // hem hitched up by the knee
+        G.set(x0 + i + d, y, c);
+      });
     }
-    for (let r = 0; r < 11; r++) BHEAD[r].forEach((c, i) => { if (c >= 0) G.set(x0 + i, y0 + r + bob, c); });
-    // lappets hang down over the shoulders
-    G.set(x0 + 5, y0 + 11 + bob, C.goldD); G.set(x0 + 9, y0 + 11 + bob, C.goldD);
-    // feet: knees alternate (the raised foot is tucked up under the hem)
-    const fy = PY;
-    if (k !== 0) G.set(x0 + 5 + sway, fy, C.goldD); else G.set(x0 + 5 + sway, fy - 1, C.robeW3);
-    if (k !== 2) G.set(x0 + 9 + sway, fy, C.goldD); else G.set(x0 + 9 + sway, fy - 1, C.robeW3);
-    // arms: shoulder -> elbow out to the side -> hand on the rope (hand over hand, always below the halo)
-    const arm = (sx, sy, ex, ey, hx, hy, side) => {
-      gl(G, sx, sy, ex, ey, C.robeW1); gl(G, sx + side, sy, ex + side, ey, C.robeW0);
-      gl(G, ex, ey, hx, hy + 2, C.robeW1); gl(G, ex + side, ey, hx + side, hy + 2, C.robeW0);
-      G.set(hx, hy + 2, C.gold); G.set(hx + side, hy + 2, C.goldD);
-      G.set(hx, hy, C.skin); G.set(hx, hy + 1, C.skinD); G.set(hx + side, hy, C.skin); G.set(hx + side, hy + 1, C.skinD);
-    };
-    // high arm: straight up beside the halo, forearm over it to the rope; low arm: hand on the rope at the chest
-    const hi = [[-7, 13], [-7, -5], [13, -7], [-5, -7]][k];
-    const high = (side) => {
-      const sx = side > 0 ? x0 + 2 : x0 + 12, ex = side > 0 ? x0 + 1 : x0 + 13, h = side > 0 ? hi[0] : hi[1];
-      const hx = side > 0 ? PX - 1 : PX, hy = y0 + h + bob;
-      if (h > 0) { // low: short reach to the rope in front of the chest
-        gl(G, sx + side * 2, y0 + 12 + bob, hx, hy + 1, C.robeW1);
-        G.set(hx, hy, C.skin); G.set(hx, hy + 1, C.skinD);
-        return hy;
-      }
-      const ey = y0 - 2 + bob;
-      gl(G, sx, y0 + 12 + bob, ex, ey, C.robeW1); gl(G, sx - side, y0 + 12 + bob, ex - side, ey, C.robeW2);
-      gl(G, ex - side, ey, hx, hy + 1, C.robeW1); gl(G, ex - side, ey - 1, hx, hy, C.robeW0);
-      G.set(hx - side, hy + 1, C.gold);
-      G.set(hx, hy, C.skin); G.set(hx, hy - 1, C.skin); G.set(hx, hy + 1, C.skinD);
-      return hy;
-    };
-    const lh = high(1), rh = high(-1);
+    // ---- head: mitre back, hair, lappets hanging down the nape
+    for (let r = 0; r < 10; r++) BHEAD[r].forEach((c, i) => { if (c >= 0) G.set(x0 + i, yH + r, c); });
+    for (const lx of [PX - 1, PX + 1]) { for (let j = 8; j <= 10; j++) G.set(lx, yH + j, lx < PX ? C.goldD : C.gold); G.set(lx, yH + 11, C.goldD); }
     G.outline();
-    // halo (post-outline)
-    const tx = PX, ty = y0 + bob - 2;
-    for (let a = -2; a <= 2; a++) { G.set(tx + a, ty - 1, C.gold); G.set(tx + a, ty + 1, C.goldD); }
-    G.set(tx - 3, ty, C.gold); G.set(tx + 3, ty, C.gold); setE(G, tx - 4, ty, 0); setE(G, tx + 4, ty, 0);
-    const SP = [[-2, -1], [2, -1], [3, 0], [-3, 0]]; G.set(tx + SP[k][0], ty + SP[k][1], WHITE);
-    return { G, hand: [0, PY - Math.min(lh, rh)] };
+    // ---- halo: a flat gold ring floating round the mitre, passing behind it
+    { const hy = yH + 4;
+      for (const s of [-1, 1]) { setE(G, PX + s * 4, hy, C.holy1); setE(G, PX + s * 5, hy, C.gold); setE(G, PX + s * 6, hy + 1, C.gold); setE(G, PX + s * 5, hy + 1, C.goldD); setE(G, PX + s * 4, hy + 1, C.goldD); }
+      G.set(PX + (k < 2 ? 5 : -5), hy, WHITE); }
+    // ---- arms: shoulder -> elbow (out to the side) -> gold cuff -> fist on the rope
+    const arm = (side, fy, pose) => {
+      const L = Lay(), sx = PX + side * 4, sy = yR + 1;
+      const high = pose === 'high';
+      const ex = PX + side * 7, ey = high ? fy + 7 : sy + 5;
+      const wx = PX + side * 2, wy = fy + (high ? 2 : 1);
+      sleeve(L, sx, sy, ex, ey, side); sleeve(L, ex, ey, wx, wy, side);
+      L.set(ex + side, ey, C.robeW1); L.set(ex + side, ey + 1, C.robeW2);      // elbow point
+      if (high) { L.set(wx - side, wy, C.gold); L.set(wx, wy, C.gold); L.set(wx + side, wy, C.goldD); }   // flared cuff
+      else { L.set(wx, wy - 1, C.gold); L.set(wx, wy, C.gold); L.set(wx, wy + 1, C.goldD); }
+      for (let q = -1; q <= 1; q++) { L.set(PX + q, fy, q ? C.skin : C.skinD); L.set(PX + q, fy + 1, q === side ? C.skin : C.skinD); }
+      comp(G, L, true);
+    };
+    const TOP = yH - 3 + lift * 2, LOW = yR + 1 + lift * 2;
+    arm(-hi, LOW, 'low'); arm(hi, TOP, 'high');
+    return { G, hand: [0, PY - TOP] };
   }
 
   // ---------------------------------------------------------------- character sheet
@@ -358,14 +368,24 @@ window.RPG_CLASS_BISHOP = function (BK) {
     const icon = fn => { const c = paint(14, 14, () => { R(0, 0, 14, 14, C.vio5); fn(); }); sh.add(c, 0, 0); };
     // j: holy arrow
     icon(() => { const ux = 0.894, uy = -0.447; bolt(10, 5, ux, uy, 0, 10); for (const [x, y] of [[3, 3], [6, 11], [11, 10]]) px(x, y, C.goldD); });
-    // k: angel ray (big radiant bolt)
-    icon(() => {
-      for (let j = 11; j >= 2; j--) { const w = Math.round(2.4 * (1 - j / 12)); for (let q = -w; q <= w; q++) px(8 - j, 7 + q, Math.abs(q) === w ? (j > 7 ? C.goldD : C.gold) : j > 6 ? C.gold : C.holy1); }
-      disc(9, 7, 2.6, C.holy1); disc(9, 7, 1.6, C.holy0); px(9, 7, WHITE); px(10, 7, WHITE);
-      for (let k = 3; k <= 5; k++) { px(9 + k, 7, k < 5 ? WHITE : C.holy1); px(9, 7 - k, k < 5 ? C.holy0 : C.gold); px(9, 7 + k, k < 5 ? C.holy0 : C.gold); }
-      px(11, 5, C.gold); px(11, 9, C.gold); px(7, 5, C.gold); px(7, 9, C.gold);
-    });
     const art = (rows) => rows.forEach((r, y) => Array.from(r).forEach((ch, x) => { const c = { W: WHITE, Y: C.holy1, H: C.holy0, G: C.gold, D: C.goldD, V: C.vio1, v: C.vio2 }[ch]; if (c !== undefined) px(x, y, c); }));
+    // k: angel ray (an angel wing over a horizontal holy beam)
+    icon(() => art([
+      '.......DGD....',
+      'DGGGGGGWWG....',
+      'YWWWWWWHWG....',
+      '.DGGGGGWHG....',
+      '.YWWWWWHWG....',
+      '..DGGGGWHG....',
+      '..YWWWWHWG....',
+      '....DGGWHGD.D.',
+      '....YWWHYGGGGG',
+      '...YHWWWHHHHHY',
+      '..HWWWWWWWWWWW',
+      '...YHWWWHHHHHY',
+      '....DGYGGGGGGG',
+      '.....D.D.D.D.D',
+    ]));
     // l: genesis (winged pillar)
     icon(() => art([
       '..............',
@@ -417,31 +437,285 @@ window.RPG_CLASS_BISHOP = function (BK) {
     sh.done();
   }
 
-  // ---------------------------------------------------------------- fx_bishop_ray 40x16
+  // ---------------------------------------------------------------- Angel Ray: angel + sustained holy beam
+  // The angel hovers behind the bishop; the beam starts at fx_bishop_beamhead (staff tip), is tiled right with
+  // fx_bishop_beam segments and ends in fx_bishop_beamend. All light: gold rims instead of ink.
+  function glowRim(G) { // like Grid.outline(), but a luminous gold rim (darker under the shape, as in the genesis wings)
+    const b = G.a.slice();
+    for (let y = 0; y < G.h; y++) for (let x = 0; x < G.w; x++) if (G.a[y * G.w + x] < 0) {
+      if (G.get(x, y - 1) >= 0) b[y * G.w + x] = C.goldD;
+      else if (G.get(x, y + 1) >= 0 || G.get(x - 1, y) >= 0 || G.get(x + 1, y) >= 0) b[y * G.w + x] = C.gold;
+    }
+    G.a.set(b);
+  }
+  const BRIGHT = {}; BRIGHT[C.goldD] = C.gold; BRIGHT[C.gold] = C.holy1; BRIGHT[C.holy1] = C.holy0; BRIGHT[C.holy0] = WHITE; BRIGHT[C.skin] = C.holy1; BRIGHT[C.skinD] = C.gold;
+
+  // ---- fx_bishop_angel 40x48, pivot bottom centre (20,47)
   {
-    const sh = Sheet('fx_bishop_ray', 40, 16, 2, { px: 20, py: 8, fps: 12, anims: { play: { fps: 12, loop: true, frames: [0, 1] } } });
-    for (let s = 0; s < 2; s++) sh.add(paint(40, 16, () => {
-      const hx = 30, hy = 8;
-      // trailing glow: tapering band, dithered at the tail
-      for (let x = 1; x < hx; x++) {
-        const f = (hx - x) / (hx - 1), w = 4.2 * (1 - f) + 0.6;
-        for (let y = Math.floor(hy - w); y <= Math.ceil(hy + w); y++) {
-          const e = Math.abs(y - hy) / w; if (e > 1) continue;
-          if (f > 0.55 && bay(x + s * 2, y) > 1.6 - f * 1.4) continue;
-          const c = e > 0.75 ? (f > 0.5 ? C.goldD : C.gold) : e > 0.4 ? (f > 0.6 ? C.gold : C.holy1) : (f > 0.7 ? C.holy1 : f > 0.3 ? C.holy0 : WHITE);
-          px(x, y, c);
+    const AW = 40, AH = 48;
+    // wing: leading-edge arm + layered feather strokes (ported from the genesis wings, scaled down). Local coords,
+    // extends to +x from the root; v: 1/2 feathers, 3 feather tips, 4 coverts, 5 arm
+    // wing: per-column silhouette like the genesis pillar wings (leading edge arcs up and out, feathers hang below it
+    // with scalloped tips), covert row + feather seams for detail. Local coords extend to +x from the root; s mirrors.
+    function drawWing(G, rx, ry, s, len, ht, flap) {
+      const P = (x, y, c) => G.set(rx + s * x, ry + y, c);
+      for (let x = 0; x <= len; x++) {
+        const u = x / len, top = Math.round(-(ht + flap * 1.5) * Math.pow(Math.sin(u * Math.PI / 2), 0.75));
+        const th = u < 0.6 ? lerp(5, 11, u / 0.6) : lerp(11, 3.5, (u - 0.6) / 0.4);
+        const ph = (len - x) % 3, tip = ph === 1 ? 1 : ph === 0 ? -1 : 0;    // 3-column feathers: point, body, notch
+        const bot = Math.round(top + th + tip);
+        const cov = Math.round(top + Math.max(2, th * 0.38));
+        for (let y = top; y <= bot; y++) {
+          const f = (y - top) / Math.max(1, bot - top);
+          let c;
+          if (y <= top + 1) c = WHITE;                                                   // leading edge
+          else if (y < cov) c = C.holy0;                                                 // coverts
+          else if (y === cov) c = x % 2 ? C.gold : C.holy1;                              // covert scallop
+          else if (ph === 0) c = f > 0.7 ? C.gold : C.holy1;                             // seam between flight feathers
+          else c = f > 0.8 ? C.holy1 : f > 0.55 ? C.holy0 : WHITE;
+          P(x, y, c);
         }
       }
-      // shimmering streaks inside the trail
-      for (let q = 0; q < 5; q++) { const y = hy - 2 + q, x0 = 4 + Math.round(hash(q, s + 5) * 14), len = 3 + Math.round(hash(q, s + 11) * 6); for (let j = 0; j < len; j++) px(x0 + j, y, q === 2 ? WHITE : C.holy0); }
-      // radiant head
-      disc(hx, hy, 5.2, C.gold); disc(hx, hy, 4.2, C.holy1); disc(hx, hy, 3, C.holy0); disc(hx, hy, 1.8, WHITE);
-      const lv = s ? 7 : 5, lh = s ? 7 : 9;
-      for (let k = 5; k <= lh; k++) px(hx + k, hy, k < lh - 1 ? WHITE : C.holy1);
-      for (let k = 5; k <= lv; k++) { px(hx, hy - k, k < lv ? C.holy0 : C.gold); px(hx, hy + k, k < lv ? C.holy0 : C.gold); }
-      for (let k = 4; k <= 5; k++) for (const [a, b] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) px(hx + a * k * 0.75, hy + b * k * 0.75, k === 4 ? C.holy1 : C.gold);
-      // sparkles around the trail
-      for (let q = 0; q < 6; q++) { const x = 3 + Math.round(hash(q, 40 + s) * 24), y = Math.round(hash(q, 50 + s) * 15); px(x, y, q & 1 ? C.holy1 : C.gold); }
+    }
+    const LA = { W: WHITE, H: C.holy0, Y: C.holy1, G: C.gold, g: C.goldD, s: C.skin, S: C.skinD };
+    const BODY = sprite([   // x 15.., y 8..: head in profile facing right, white robe with gold sash + orphrey
+      '.....YYY......',   // 8  golden hair
+      '....YYYYG.....',   // 9
+      '...GYYYGss....',   // 10
+      '...GYYGsss....',   // 11
+      '...gGYGsSs....',   // 12
+      '....gGGss.....',   // 13
+      '.....GYHH.....',   // 14 neck
+      '....YHWWWH....',   // 15
+      '....YHWWWWH...',   // 16 shoulders (profile: narrow)
+      '....YHWWWWH...',   // 17
+      '....YHHWWWH...',   // 18
+      '....YHHWWWH...',   // 19
+      '....gGGGGGG...',   // 20 sash
+      '...YHHWGWWH...',   // 21
+      '..YHHWWGWWWH..',   // 22
+      '..YHHWWGWWWH..',   // 23
+      '..YHHWWGWWWH..',   // 24
+      '.YHHWWWGWWWWH.',   // 25
+      '.YHHWWWGWWWWH.',   // 26
+      '.YHHWWWGWWWWH.',   // 27
+      'YHHWWWWGWWWWWH',   // 28
+      'YHHWWWWGWWWWWH',   // 29
+    ], LA);
+    // the full figure as an index grid (wings, then body + arms), gold-rimmed
+    function figure(flap, bob) {
+      const Wg = Grid(AW, AH);
+      drawWing(Wg, 18, 17 + bob, -1, 15, 12, flap);            // back wing, sweeping up-left
+      drawWing(Wg, 23, 15 + bob, 1, 13, 11, flap);             // near wing, up-right behind the head
+      glowRim(Wg);
+      const B = Grid(AW, AH), bx = 15, by = 8 + bob;
+      BODY.forEach((row, r) => row.forEach((c, i) => { if (c >= 0) B.set(bx + i, by + r, c); }));
+      // robe tail: trails left and dissolves into light (hovering, no feet)
+      for (let y = 30; y <= 43; y++) {
+        const t = (y - 29) / 15, cx = 21.5 - t * 4, hw = 7 * Math.pow(1 - t, 0.75) + 0.5;
+        for (let x = Math.floor(cx - hw); x <= Math.ceil(cx + hw); x++) {
+          const e = (x - cx) / hw; if (Math.abs(e) > 1) continue;
+          if (t > 0.35 && bay(x, y + bob) > 1.35 - t * 1.25) continue;
+          const stripe = Math.round(cx + 0.5 + t * 1.5) === x;
+          B.set(x, y + bob, stripe ? (t > 0.6 ? C.holy1 : C.gold) : e < -0.7 ? C.holy1 : e < -0.35 ? C.holy0 : WHITE);
+        }
+      }
+      // far arm (a touch higher, shaded) and near arm reaching forward, bell sleeves drooping, open palms
+      const armL = (sx, y0, hx, hy, lit) => {
+        gl(B, sx, y0, hx - 1, hy, lit ? WHITE : C.holy0); gl(B, sx, y0 + 1, hx - 1, hy + 1, lit ? C.holy0 : C.holy1);
+        gl(B, sx, y0 + 2, hx - 3, hy + 2, C.holy1); B.set(hx - 3, hy + 3, C.holy1); B.set(hx - 4, hy + 3, C.holy1);   // bell sleeve droops
+        B.set(hx - 1, hy, C.gold); B.set(hx - 1, hy + 1, C.gold); B.set(hx - 2, hy + 2, C.gold); B.set(hx - 3, hy + 3, C.goldD);   // cuff
+        B.set(hx, hy, C.skin); B.set(hx, hy + 1, lit ? C.skin : C.skinD); B.set(hx + 1, hy, C.skin); B.set(hx, hy - 1, lit ? C.skin : C.skinD);
+      };
+      armL(23, 15 + bob, 30, 15 + bob, false);
+      armL(22, 17 + bob, 31, 18 + bob, true);
+      B.set(22, 11 + bob, C.goldD);                            // eye
+      glowRim(B);
+      for (let i = 0; i < B.a.length; i++) if (B.a[i] >= 0) Wg.a[i] = B.a[i];
+      return Wg;
+    }
+    function halo(G, bob, k, fade) {
+      const hx = 21, hy = 5 + bob;
+      for (let a = -3; a <= 3; a++) { if (bay(hx + a, hy - 1) < fade) G.set(hx + a, hy - 1, Math.abs(a) < 2 ? C.holy1 : C.gold); if (bay(hx + a, hy + 1) < fade) G.set(hx + a, hy + 1, C.goldD); }
+      if (fade >= 1) { G.set(hx - 4, hy, C.gold); G.set(hx + 4, hy, C.gold); G.set(hx - 3 + (k % 3) * 3, hy - 1, WHITE); }
+    }
+    function handGlow(G, bob, k) {   // casting light in the open palms
+      const cx = 34, cy = 17 + bob, L = [2, 3, 2, 3, 2, 3][k];
+      const S2 = (x, y, c) => { if (G.get(x, y) < 0 || c === WHITE) G.set(x, y, c); };
+      S2(cx, cy, WHITE); S2(cx - 1, cy, C.holy0); S2(cx + 1, cy, C.holy0); S2(cx, cy - 1, C.holy0); S2(cx, cy + 1, C.holy0);
+      for (let j = 2; j <= L; j++) { S2(cx + j, cy, j < L ? C.holy1 : C.gold); S2(cx, cy - j, j < L ? C.holy1 : C.gold); S2(cx, cy + j, j < L ? C.holy1 : C.gold); }
+      S2(cx + 1, cy - 1, C.gold); S2(cx + 1, cy + 1, C.gold); S2(cx - 1, cy - 1, C.goldD); S2(cx - 1, cy + 1, C.goldD);
+    }
+    function motes(G, k, n, spread) {   // twinkling light motes drifting up around the angel
+      for (let q = 0; q < n; q++) {
+        const lt = (hash(q, 77) + k / 6) % 1, x = Math.round(20 + (hash(q, 78) - 0.5) * spread), y = Math.round(42 - hash(q, 79) * 12 - lt * 28);
+        if (G.get(x, y) >= 0) continue;
+        G.set(x, y, lt < 0.3 ? WHITE : lt < 0.6 ? C.holy1 : C.gold);
+        if (q % 4 === 0 && lt < 0.5) for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (G.get(x + a, y + b) < 0) G.set(x + a, y + b, C.gold);
+      }
+    }
+    const sh = Sheet('fx_bishop_angel', AW, AH, 6, { px: 20, py: 47, fps: 12, anims: { appear: { fps: 12, loop: false, frames: [0, 1, 2] }, play: { fps: 12, loop: true, frames: [3, 4, 5] } } });
+    const FLAP = [0, 0, 0, 1, 0, -1], BOB = [0, 0, 0, 0, -1, -1];
+    for (let k = 0; k < 6; k++) {
+      const F = figure(FLAP[k], BOB[k]), G = Grid(AW, AH);
+      if (k === 0) { // sparkles converging from all around onto the figure's silhouette
+        const cells = []; for (let i = 0; i < F.a.length; i++) if (F.a[i] >= 0) cells.push(i);
+        for (let q = 0; q < 34; q++) {
+          const i = cells[Math.floor(hash(q, 11) * cells.length)], tx = i % AW, ty = Math.floor(i / AW);
+          const a = hash(q, 12) * 6.283, r = 6 + hash(q, 13) * 9, x = clamp(Math.round(tx + Math.cos(a) * r), 1, AW - 2), y = clamp(Math.round(ty + Math.sin(a) * r * 0.8), 1, AH - 2);
+          G.set(x, y, q % 3 === 0 ? WHITE : q % 3 === 1 ? C.holy1 : C.gold);
+          if (q % 5 === 0) for (const [p, b] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) G.set(x + p, y + b, C.gold);
+        }
+        for (let y = 12; y <= 32; y++) for (let x = 14; x <= 28; x++) { const d = Math.hypot((x - 21) / 7, (y - 22) / 10); if (d < 1 && bay(x, y) < (1 - d) * 0.35) G.set(x, y, d < 0.45 ? C.holy1 : C.goldD); }
+      } else if (k === 1) { // faint outline: the gold rim, flickering in, with a dithered pale body
+        for (let i = 0; i < F.a.length; i++) {
+          const v = F.a[i], x = i % AW, y = Math.floor(i / AW); if (v < 0) continue;
+          const edge = F.get(x - 1, y) < 0 || F.get(x + 1, y) < 0 || F.get(x, y - 1) < 0 || F.get(x, y + 1) < 0;
+          if (edge) { if (bay(x, y) < 0.85) G.a[i] = y > 30 ? C.gold : C.holy1; }
+          else if (bay(x, y) < 0.1) G.a[i] = C.goldD;
+        }
+        motes(G, 1, 12, 34); halo(G, 0, k, 0.6);
+      } else if (k === 2) { // fully formed, flaring bright
+        for (let i = 0; i < F.a.length; i++) { const v = F.a[i]; if (v >= 0) G.a[i] = BRIGHT[v] !== undefined ? BRIGHT[v] : v; }
+        halo(G, 0, k, 1); handGlow(G, 0, 1);
+        for (let q = 0; q < 16; q++) { const a = q / 16 * 6.283, x = Math.round(21 + Math.cos(a) * 17), y = Math.round(22 + Math.sin(a) * 19); if (q & 1) G.set(x, y, C.holy1); else { G.set(x, y, WHITE); G.set(x + 1, y, C.gold); G.set(x - 1, y, C.gold); } }
+      } else { // hovering loop: wing beat + shimmer
+        G.a.set(F.a);
+        // shimmer: a bright glint band sweeping across the feathers
+        const gx = [6, 16, 28][k - 3];
+        for (let i = 0; i < G.a.length; i++) { const x = i % AW, y = Math.floor(i / AW), v = G.a[i]; if ((v === C.holy0 || v === C.holy1) && Math.abs(x + y * 0.5 - gx - 8) < 1.5) G.a[i] = v === C.holy1 ? C.holy0 : WHITE; }
+        halo(G, BOB[k], k, 1); handGlow(G, BOB[k], k); motes(G, k, 10, 36);
+      }
+      sh.add(toC(G, null), 0, 0);
+    }
+    sh.done();
+  }
+
+  // ---- beam profile shared by the segment, head and end. d: distance from the beam centre (px), p: phase along the
+  // beam (period 16, so tiles are seamless), lvl: 0 full / 1 thin / 2 fading line. Returns a colour or -1.
+  function beamPx(x, y, d, p, lvl) {
+    const TAU = Math.PI * 2, w = ((p % 16) + 16) % 16;
+    const band = Math.sin(TAU * 2 * w / 16) * 0.6 + Math.sin(TAU * w / 16 + 1.3) * 0.3;   // shimmer ripples, scroll with p
+    const core = [2, 1, 0.5][lvl], dd = d - band * [0.7, 0.45, 0][lvl] * (d > 2.5 ? 1 : 0.4);
+    if (lvl === 2) {
+      if (d < 1) return w % 8 === 3 ? C.gold : C.holy1;
+      if (d < 2) return bay(x, y) < 0.22 ? C.goldD : -1;
+      return -1;
+    }
+    if (dd < core) return WHITE;
+    if (dd < core + 1) return C.holy0;
+    if (dd < core + 2) return C.holy1;
+    if (dd < core + 3) return C.gold;
+    if (dd < core + 4) return bay(x, y) < (lvl ? 0.45 : 0.75) ? C.goldD : -1;
+    // outer halo: sparse glitter that flows with the beam (hashed on the phase, so it tiles)
+    const hr = lvl ? 3 : 10.5 - (core + 4), f = (d - core - 4) / hr;
+    if (f >= 1) return -1;
+    const k = (1 - f) * (lvl ? 0.3 : 0.55) * (0.9 + 0.2 * Math.sin(TAU * 2 * (w + 3) / 16));
+    if (hash(w, y + 300) < 0.035 * (1 - f)) return C.holy1;                     // glitter flowing with the beam
+    return bay(x, y) < k ? (f < 0.45 ? C.gold : C.goldD) : -1;
+  }
+  // bright dashes flowing inside the beam (period 16)
+  function beamDashes(set, cy, p0, lvl) {
+    if (lvl === 2) return;
+    const rows = lvl ? [[-2, 0, 3], [1, 9, 3]] : [[-4, 2, 4], [-3, 11, 3], [3, 6, 5], [2, 14, 3], [-5, 8, 2], [4, 0, 2]];
+    for (const [dy, off, len] of rows) for (let j = 0; j < len; j++) set(off + j, cy + dy, Math.abs(dy) >= 4 ? C.holy1 : C.holy0, p0);
+  }
+
+  // ---- fx_bishop_beam 16x22, pivot (0,11): tileable segment, bands scroll right 4 px per frame
+  {
+    const BW2 = 16, BH2 = 22, CY = 10.5;
+    const sh = Sheet('fx_bishop_beam', BW2, BH2, 6, { px: 0, py: 11, fps: 12, anims: { play: { fps: 12, loop: true, frames: [0, 1, 2, 3] } } });
+    for (let f = 0; f < 6; f++) sh.add(paint(BW2, BH2, () => {
+      const lvl = f < 4 ? 0 : f - 3, sc = f < 4 ? f * 4 : 0;
+      for (let y = 0; y < BH2; y++) for (let x = 0; x < BW2; x++) { const c = beamPx(x, y, Math.abs(y + 0.5 - (CY + 0.5)), x - sc, lvl); if (c >= 0) px(x, y, c); }
+      beamDashes((x, y, c) => px(((x + sc) % 16 + 16) % 16, y, c), 11, 0, lvl);
+      // motes in the halo, drifting right with the bands
+      if (lvl < 2) for (let q = 0; q < (lvl ? 2 : 4); q++) { const x = ((Math.floor(hash(q, 5) * 16) + sc * (q & 1 ? 2 : 1)) % 16), y = q & 1 ? 1 + Math.floor(hash(q, 6) * 3) : 18 + Math.floor(hash(q, 6) * 3); px(x, lvl ? (y < 11 ? y + 3 : y - 3) : y, q < 2 ? C.holy1 : C.gold); }
+    }), 0, 0);
+    sh.done();
+  }
+
+  // ---- fx_bishop_beamhead 24x30, pivot (8,15): star-burst + holy sigil ring at the staff tip
+  {
+    const HW = 24, HH = 30, CX = 8, CY = 14.5;
+    const sh = Sheet('fx_bishop_beamhead', HW, HH, 4, { px: 8, py: 15, fps: 12, anims: { play: { fps: 12, loop: true, frames: [0, 1, 2, 3] } } });
+    for (let f = 0; f < 4; f++) sh.add(paint(HW, HH, () => {
+      const G = Grid(HW, HH), S2 = (x, y, c) => G.set(x, y, c), E2 = (x, y, c) => { if (G.get(Math.round(x), Math.round(y)) < 0) G.set(x, y, c); };
+      // beam leaving to the right (same phase as the first tile), fading in from the burst
+      for (let y = 0; y < HH; y++) for (let x = CX; x < HW; x++) { const c = beamPx(x, y, Math.abs(y - CY), x - CX - f * 4, 0); if (c >= 0) S2(x, y, c); }
+      beamDashes((x, y, c) => { const xx = CX + (((x + f * 4) % 16) + 16) % 16; if (xx > CX + 5 && xx < HW) S2(xx, y, c); }, 15, 0, 0);
+      // sigil ring seen edge-on (the beam passes through it): outer gold ring + rotating rune dots, inner pale ring
+      const rx = 5.5, ry = 11;
+      for (let i = 0; i < 64; i++) {
+        const a = i / 64 * 6.283, x = CX - 0.5 + Math.cos(a) * rx, y = CY + Math.sin(a) * ry, back = Math.cos(a) < 0;
+        S2(x + 0.5, y + 0.5, back ? C.goldD : C.gold); if (!back && Math.abs(Math.sin(a)) > 0.5) E2(x + 1.5, y + 0.5, C.goldD);
+      }
+      for (let q = 0; q < 6; q++) { const a = (q / 6 + f / 24) * 6.283, x = CX + Math.cos(a) * rx, y = CY + 0.5 + Math.sin(a) * ry; S2(x, y, Math.cos(a) > 0 ? WHITE : C.holy1); if (Math.cos(a) > 0.3) { E2(x + 1, y, C.holy1); E2(x - 1, y, C.holy1); } }
+      for (let i = 0; i < 40; i++) { if ((i + f) % 3 === 0) continue; const a = i / 40 * 6.283; E2(CX + Math.cos(a) * 3 + 0.5, CY + 0.5 + Math.sin(a) * 7.5, C.holy1); }
+      // rays: long vertical spikes, shorter back + diagonals, pulsing
+      const L = [[0, -1, 11 + (f & 1)], [0, 1, 11 + (f & 1)], [-1, 0, 7 - (f & 1)], [-1, -1, 5 + ((f + 1) & 1)], [-1, 1, 5 + ((f + 1) & 1)], [1, -1, 6 + (f & 1)], [1, 1, 6 + (f & 1)]];
+      for (const [dx, dy, len] of L) for (let j = 3; j <= len; j++) {
+        const c = j <= len * 0.45 ? WHITE : j <= len * 0.75 ? C.holy1 : C.gold;
+        const x = CX + dx * j, y = (dy < 0 ? 14 : 15) + dy * j;
+        S2(x, y, c); if (dx === 0 && j < len * 0.6) { E2(x - 1, y, C.gold); }
+      }
+      // core burst
+      const R0 = 4.2 + (f % 2) * 0.6;
+      for (let y = 0; y < HH; y++) for (let x = 0; x < HW; x++) {
+        const d = Math.hypot(x + 0.5 - CX, y + 0.5 - (CY + 0.5));
+        if (d < R0 - 1.8) S2(x, y, WHITE); else if (d < R0 - 0.8) S2(x, y, C.holy0); else if (d < R0) S2(x, y, C.holy1);
+        else if (d < R0 + 1.2 && bay(x, y) < 0.7) E2(x, y, C.gold);
+        else if (d < R0 + 3 && bay(x + f, y) < 0.18) E2(x, y, C.goldD);
+      }
+      // orbiting sparkles
+      for (let q = 0; q < 5; q++) { const a = hash(q, 3) * 6.283 + f * 0.5, r = 6 + hash(q, 4) * 4, x = Math.round(CX + Math.cos(a) * r), y = Math.round(CY + Math.sin(a) * r * 1.3); E2(x, y, q & 1 ? WHITE : C.holy1); if (q === f) { E2(x - 1, y, C.gold); E2(x + 1, y, C.gold); E2(x, y - 1, C.gold); E2(x, y + 1, C.gold); } }
+      for (let y = 0; y < HH; y++) for (let x = 0; x < HW; x++) { const v = G.get(x, y); if (v >= 0) px(x, y, v); }
+    }), 0, 0);
+    sh.done();
+  }
+
+  // ---- fx_bishop_beamend 24x30, pivot (4,15): splashing radiant burst at the beam tip, sparks flying forward
+  {
+    const EW = 24, EH = 30, CX = 8, CY = 14.5;
+    const sh = Sheet('fx_bishop_beamend', EW, EH, 4, { px: 4, py: 15, fps: 12, anims: { play: { fps: 12, loop: true, frames: [0, 1, 2, 3] } } });
+    for (let f = 0; f < 4; f++) sh.add(paint(EW, EH, () => {
+      const G = Grid(EW, EH), S2 = (x, y, c) => G.set(x, y, c), E2 = (x, y, c) => { if (G.get(Math.round(x), Math.round(y)) < 0) G.set(x, y, c); };
+      // incoming beam
+      for (let y = 0; y < EH; y++) for (let x = 0; x < CX; x++) { const c = beamPx(x, y, Math.abs(y - CY), x - 4 - f * 4, 0); if (c >= 0) S2(x, y, c); }
+      // splash crescents rolling outward to the right (looping over the 4 frames)
+      for (let k = 0; k < 2; k++) {
+        const lt = ((f + k * 2) / 4) % 1, r = 5 + lt * 9;
+        for (let i = 0; i <= 28; i++) {
+          const a = -1.25 + i / 28 * 2.5, x = CX + Math.cos(a) * r, y = CY + 0.5 + Math.sin(a) * r * 1.15;
+          if (lt > 0.5 && (i + f) % 2) continue;
+          E2(x, y, lt < 0.3 ? WHITE : lt < 0.55 ? C.holy1 : lt < 0.8 ? C.gold : C.goldD);
+          if (lt < 0.45) E2(x - 1, y, C.gold);
+        }
+      }
+      // splash rays fanning forward
+      for (let q = 0; q < 7; q++) {
+        const a = (q - 3) * 0.42 + (hash(q, f + 20) - 0.5) * 0.3, len = 6 + Math.round(hash(q, f + 30) * 5);
+        for (let j = 4; j <= len; j++) { const x = CX + Math.cos(a) * j, y = CY + 0.5 + Math.sin(a) * j; if (j > len - 2 && (j + q) & 1) continue; E2(x, y, j < len * 0.55 ? WHITE : j < len * 0.8 ? C.holy1 : C.gold); }
+      }
+      // sparks flying forward (each loops seamlessly over the 4 frames)
+      for (let q = 0; q < 14; q++) {
+        const lt = (hash(q, 40) + f / 4) % 1, a = (hash(q, 41) - 0.5) * 2.6, r = 5 + lt * 10;
+        const x = Math.round(CX + Math.cos(a) * r), y = Math.round(CY + Math.sin(a) * r + lt * lt * 3);
+        E2(x, y, lt < 0.35 ? WHITE : lt < 0.65 ? C.holy1 : C.gold);
+        if (lt < 0.5 && q % 3 === 0) { E2(x - 1, y, C.gold); E2(x - 2, y, C.goldD); }
+      }
+      // radiant core
+      const R0 = 5 + (f & 1) * 0.8;
+      for (let y = 0; y < EH; y++) for (let x = 0; x < EW; x++) {
+        const d = Math.hypot((x + 0.5 - CX) * 1.05, y + 0.5 - (CY + 0.5));
+        if (d < R0 - 2) S2(x, y, WHITE); else if (d < R0 - 1) S2(x, y, C.holy0); else if (d < R0) S2(x, y, C.holy1);
+        else if (d < R0 + 1.3 && bay(x, y) < 0.75) E2(x, y, C.gold);
+        else if (d < R0 + 4 && bay(x + f * 2, y) < 0.2 * (1 - (d - R0) / 4)) E2(x, y, C.goldD);
+      }
+      // 4-point twinkle on the core
+      const T = [3, 5, 4, 6][f];
+      for (let j = 1; j <= T; j++) { S2(CX + R0 - 1 + j, 15, j < T - 1 ? WHITE : C.holy1); S2(CX, 14 - R0 + 1 - j, j < T - 1 ? C.holy0 : C.gold); S2(CX, 15 + R0 - 1 + j, j < T - 1 ? C.holy0 : C.gold); }
+      for (let y = 0; y < EH; y++) for (let x = 0; x < EW; x++) { const v = G.get(x, y); if (v >= 0) px(x, y, v); }
     }), 0, 0);
     sh.done();
   }

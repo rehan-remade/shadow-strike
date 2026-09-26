@@ -4,14 +4,16 @@ using UnityEngine;
 // Skill kits for the non-Night-Lord classes. Slots: 0 = J (basic), 1 = K, 2 = L, 3 = U; mobility on the second jump.
 //   HERO       Slash · Rush · Dragon Fury · Worldreaver      · Leap
 //   ARCH MAGE  Ice Bolt · Blizzard · Meteor · Ice Strike     · Teleport
-//   BISHOP     Holy Arrow · Angel Ray · Genesis · Heal       · Teleport
+//   BISHOP     Holy Arrow · Angel Ray (angel + holy beam) · Genesis · Heal · Teleport
 //   BOWMASTER  Arrow · Power Shot · Hurricane · Arrow Bomb   · Double Jump
 public partial class Player
 {
     ClassDef cls;
     bool IsNL { get { return cls == null || cls.id == "nightlord"; } }
     public string ClassId { get { return cls == null ? "nightlord" : cls.id; } }
-    SpriteRenderer rushSR;
+    SpriteRenderer rushSR, angelSR, beamHead, beamEnd;
+    readonly List<SpriteRenderer> beamSegs = new List<SpriteRenderer>();
+    float beamLen, beamHitT;
     string cSkill;
     float cDur, cNext;
     int cStage;
@@ -28,6 +30,13 @@ public partial class Player
         anim = new Anim(sh, "idle");
         act = Act.None;
         if (rushSR == null) { rushSR = Px.MakeSR("rushfx", Game.I.fx, 32, Px.LAYER_FX); rushSR.enabled = false; }
+        if (angelSR == null)
+        {
+            var F = Game.I.fx;
+            angelSR = Px.MakeSR("angel", F, 29, Px.LAYER_FX); beamHead = Px.MakeSR("beamhead", F, 34, Px.LAYER_FX); beamEnd = Px.MakeSR("beamend", F, 34, Px.LAYER_FX);
+            for (int k = 0; k < 16; k++) beamSegs.Add(Px.MakeSR("beam", F, 33, Px.LAYER_FX));
+            HideBeam(); angelSR.enabled = false;
+        }
     }
 
     Vector2 HandPos() { return Hand(sh, anim.Frame, x, y, face); }
@@ -88,7 +97,7 @@ public partial class Player
             case "archmage2": Begin("meteor", "cast", 1.1f, true); G.fxs.Callout("meteor"); Sfx.Play("charge"); break;
             case "archmage3": Begin("icestrike", "skill", 0.45f); G.fxs.Callout("ice"); break;
             case "bishop0": Begin("holy", "attack", 0.34f); break;
-            case "bishop1": Begin("angelray", "skill", 0.45f); G.fxs.Callout("angel"); break;
+            case "bishop1": Begin("angelray", "cast", 1.05f); beamLen = 0; beamHitT = 0; G.fxs.Callout("angel"); Sfx.Play("charge"); break;
             case "bishop2": Begin("genesis", "cast", 1.3f, true); G.fxs.Callout("genesis"); Sfx.Play("charge"); break;
             case "bishop3": Begin("heal", "cast", 0.45f); G.fxs.Callout("heal"); break;
             case "bowmaster0": Begin("arrow", "attack", 0.3f); break;
@@ -213,9 +222,30 @@ public partial class Player
             case "holy":
                 if (cStage == 0 && actT >= 0.1f) { cStage = 1; P.Shoot("fx_bishop_arrow", hp.x, hp.y, face, 260, Dmg(1.1f), 1, 200, 1, 0, null, "stick"); Sfx.Play("star"); }
                 break;
-            case "angelray":
-                if (cStage == 0 && actT >= 0.12f) { cStage = 1; P.Shoot("fx_bishop_ray", hp.x, hp.y, face, 300, Dmg(2.2f), 3, 240, 2, 0, null, "hit"); Sfx.Play("whoosh"); }
+            case "angelray":  // an angel appears behind the bishop and pours a holy beam through everything in front
+            {
+                const float FIRE = 0.28f, STOP = 0.86f;
+                if (cStage == 0 && actT >= FIRE) { cStage = 1; anim.Play("attack", true); G.Flash(1); G.Shake(6, 1); Sfx.Play("whoosh"); Sfx.Play("unlock", 0.6f); }
+                if (cStage == 1)
+                {
+                    anim.t = 1.5f / 16f;                              // hold the forward staff thrust: the beam fires at chest height
+                    float maxLen = face > 0 ? G.map.MaxX + 8 - hp.x : hp.x - (G.map.MinX - 8);
+                    beamLen = Mathf.Min(Mathf.Min(beamLen + 1800 * Px.DT, 200), Mathf.Max(0, maxLen));
+                    if (actT >= FIRE + beamHitT * 0.11f && actT < STOP)
+                    {
+                        beamHitT++;
+                        foreach (var t in Game.I.targets)
+                        {
+                            if (!t.Active) continue;
+                            float ty = t.BaseY + t.MidH, d = (t.CentreX(ty) - hp.x) * face;
+                            if (d < -6 || d > beamLen + 6 || Mathf.Abs(ty - hp.y) > 16) continue;
+                            t.Hit(t.CentreX(ty), ty, new HitOpt { push = 0.6f, stop = 1, shakeN = 3, straw = 4, crit = Px.Rand() < 0.3f, big = beamHitT == 6, bigNum = beamHitT == 6, dmgBase = Dmg(0.85f), sfx = beamHitT % 2 == 1 ? "hit" : null }, face);
+                        }
+                        if (G.tick % 2 == 0) G.parts.Burst(hp.x + face * beamLen, hp.y, 4, Particles.SPARK, 60, 0.3f, 0, true);
+                    }
+                }
                 break;
+            }
             case "genesis":
                 if (cStage == 0 && actT >= 0.45f)
                 {
@@ -313,11 +343,44 @@ public partial class Player
         }
     }
 
+    void HideBeam() { beamHead.enabled = beamEnd.enabled = false; foreach (var b in beamSegs) b.enabled = false; }
+
     // effects that ride along with the player
     void ClassDraw()
     {
         var G = Game.I;
         if (rushSR == null) return;
+        // Angel Ray: angel behind, beam from the staff
+        bool ray = act == Act.CAct && cSkill == "angelray" && Atlas.Sheets.ContainsKey("fx_bishop_angel");
+        angelSR.enabled = ray && sr.enabled;
+        if (ray)
+        {
+            var an = Atlas.Sheets["fx_bishop_angel"];
+            int af = actT < 0.25f ? Mathf.Min(2, Mathf.FloorToInt(actT * 12)) : 3 + Mathf.FloorToInt(actT * 12) % 3;
+            if (actT > cDur - 0.1f) angelSR.enabled = (G.tick & 1) == 0;
+            angelSR.sprite = an.frames[Mathf.Min(af, an.count - 1)]; angelSR.flipX = face < 0;
+            Px.Place(angelSR.transform, x - face * 10, y + 6);
+        }
+        bool beam = ray && cStage == 1 && beamLen > 0 && Atlas.Sheets.ContainsKey("fx_bishop_beam");
+        if (!beam) HideBeam();
+        else
+        {
+            var hp = HandPos();
+            var bs = Atlas.Sheets["fx_bishop_beam"];
+            int bf = actT < 0.86f ? Mathf.FloorToInt(G.time * 12) % 4 : actT < 0.95f ? 4 : 5;
+            int n = Mathf.Min(beamSegs.Count, Mathf.CeilToInt(beamLen / 16f));
+            for (int k = 0; k < beamSegs.Count; k++)
+            {
+                var b = beamSegs[k]; b.enabled = k < n;
+                if (!b.enabled) continue;
+                b.sprite = bs.frames[bf]; b.flipX = face < 0;
+                Px.Place(b.transform, hp.x + face * k * 16, hp.y);
+            }
+            var hs = Atlas.Sheets["fx_bishop_beamhead"]; var es = Atlas.Sheets["fx_bishop_beamend"];
+            int f4 = Mathf.FloorToInt(G.time * 12) % 4;
+            beamHead.enabled = bf < 5; beamHead.sprite = hs.frames[f4]; beamHead.flipX = face < 0; Px.Place(beamHead.transform, hp.x, hp.y);
+            beamEnd.enabled = bf < 4; beamEnd.sprite = es.frames[f4]; beamEnd.flipX = face < 0; Px.Place(beamEnd.transform, hp.x + face * beamLen, hp.y);
+        }
         bool on = act == Act.CAct && cSkill == "rush" && cStage == 0 && Atlas.Sheets.ContainsKey("fx_hero_rush");
         rushSR.enabled = on && sr.enabled;
         if (on)

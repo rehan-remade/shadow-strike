@@ -33,7 +33,7 @@ public partial class Player
     Anim anim;
     bool visible = true;
 
-    struct Snap { public float x, y; public int face, frame; public bool vis, charging; public int chargeK; }
+    struct Snap { public float x, y; public int face, frame; public bool vis, charging, climbing; public int chargeK; }
     readonly Snap[] hist = new Snap[64];
     int histHead;
     public bool CloneOn { get; private set; }
@@ -69,6 +69,7 @@ public partial class Player
 
     Vector2 Hand(Sheet s, int frame, float px, float py, int f) { var h = s.hands[frame]; return new Vector2(px + (f > 0 ? h.x : -h.x - 1), py + h.y); }
     Vector2 CloneOffset(int f) { return new Vector2(-f * 7, 0); }   // same ground, just behind like a shadow
+    Vector2 CloneOffset(Snap sn) { return sn.climbing ? Vector2.zero : CloneOffset(sn.face); }   // on a rope: right behind you on the same rope
     float Dmg(float mult) { return Stats.Atk * mult; }
 
     bool Spend(int skill)
@@ -203,7 +204,7 @@ public partial class Player
             if (partnerT <= 0)
             {
                 CloneOn = false; csr.enabled = false; cChargeSR.enabled = false;
-                var s0 = hist[(histHead - DELAY + hist.Length) % hist.Length]; var co = CloneOffset(s0.face);
+                var s0 = hist[(histHead - DELAY + hist.Length) % hist.Length]; var co = CloneOffset(s0);
                 Puff(s0.x + co.x, s0.y + co.y + 10); Sfx.Play("poof");
             }
         }
@@ -212,7 +213,7 @@ public partial class Player
             if (G.tick < cloneEvts[i].due) continue;
             var e = cloneEvts[i]; cloneEvts.RemoveAt(i);
             if (!CloneOn) continue;
-            var s = hist[(histHead - DELAY + hist.Length) % hist.Length]; var co = CloneOffset(s.face);
+            var s = hist[(histHead - DELAY + hist.Length) % hist.Length]; var co = CloneOffset(s);
             var hp = Hand(shClone, s.frame, s.x + co.x, s.y + co.y, s.face);
             if (e.kind == 0) G.proj.ThrowStar(hp.x + s.face * 2, hp.y, s.face, true, Dmg(0.5f));
             else G.proj.ThrowBig(hp.x, hp.y + 8, s.face, true, Dmg(0.65f));
@@ -440,11 +441,11 @@ public partial class Player
         else chargeSR.enabled = false;
 
         histHead = (histHead + 1) % hist.Length;
-        hist[histHead] = new Snap { x = x, y = y, face = face, frame = fr, vis = visible, charging = chargeK >= 0, chargeK = chargeK };
+        hist[histHead] = new Snap { x = x, y = y, face = face, frame = fr, vis = visible, charging = chargeK >= 0, chargeK = chargeK, climbing = climb != null };
 
         if (CloneOn)
         {
-            var s = hist[(histHead - DELAY + hist.Length) % hist.Length]; var co = CloneOffset(s.face);
+            var s = hist[(histHead - DELAY + hist.Length) % hist.Length]; var co = CloneOffset(s);
             csr.enabled = s.vis && (G.tick / 2) % 11 != 0;
             csr.sprite = shClone.frames[s.frame]; csr.flipX = s.face < 0;
             Px.Place(csr.transform, s.x + co.x, s.y + co.y);

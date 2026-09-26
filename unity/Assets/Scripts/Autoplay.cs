@@ -41,8 +41,9 @@ public static class Autoplay
             }
             return i;
         }
-        if (ClimbTest)   // walk to the first rope and climb it (visual check)
+        if (ClimbTest)   // walk to the first rope and climb it (visual check); Night Lord brings a Shadow Partner
         {
+            if (frame == 64 && Stats.Unlocked(3)) { i.partner = true; return i; }
             float rx = G.map.def.climbs[0].x - P.x;
             if (Mathf.Abs(rx) > 2 && P.grounded) { if (rx > 0) i.right = true; else i.left = true; }
             else i.up = true;

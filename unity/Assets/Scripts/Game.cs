@@ -219,6 +219,17 @@ public class Game : MonoBehaviour
         else dialog.Show("elder", who, q.done, new[] { "COMPLETE" }, c => { n.talking = false; Stats.TurnIn(); hud.Toast("QUEST CLEAR!", "goldBig"); });
     }
 
+    string cheatBuf = "";
+    void MaxLevelCheat()
+    {
+        var D = Stats.D;
+        D.level = 30; D.exp = 0; D.hp = Stats.MaxHp; D.mp = Stats.MaxMp; D.red = 99; D.blue = 99;
+        player.cdThrow = player.cdAv = player.cdAs = player.cdSp = 0;
+        OnLevelUp();
+        hud.Chat("CHEAT: LV 30, ALL SKILLS UNLOCKED.", "gold", 4f);
+        Stats.Save();
+    }
+
     public void OnLevelUp()
     {
         hud.Toast("LEVEL UP!", "goldBig");
@@ -270,6 +281,13 @@ public class Game : MonoBehaviour
             edges.navU |= Input.GetKeyDown(KeyCode.UpArrow) || Input.GetKeyDown(KeyCode.W);
             edges.navD |= Input.GetKeyDown(KeyCode.DownArrow) || Input.GetKeyDown(KeyCode.S);
             edges.quit |= Input.GetKeyDown(KeyCode.Q);
+            // cheat code: type MAPLE during play for max level
+            foreach (char ch in Input.inputString)
+            {
+                cheatBuf = (cheatBuf + char.ToUpperInvariant(ch));
+                if (cheatBuf.Length > 8) cheatBuf = cheatBuf.Substring(cheatBuf.Length - 8);
+                if (cheatBuf.EndsWith("MAPLE") && state == State.Play) { cheatBuf = ""; MaxLevelCheat(); }
+            }
         }
         if (capture) Tick();
         else

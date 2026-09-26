@@ -41,7 +41,7 @@ public class Hud
     string toast, toastStyle; float toastTime;
     // boss bar
     readonly SpriteRenderer bIcon, bFrame, bBg, bUnder, bLag, bFill, bShine;
-    readonly PixelText bName, bLayers;
+    readonly PixelText bName, bLayers, bStage;
     static readonly Color32[] LAYER = { Px.Hex("#e8304a"), Px.Hex("#ff8c1a"), Px.Hex("#ffd23a"), Px.Hex("#4cc85e"), Px.Hex("#3a8cff") };
     static readonly Color32[] LAYER_HI = { Px.Hex("#ff8a9a"), Px.Hex("#ffc070"), Px.Hex("#fff0a0"), Px.Hex("#a8f0b4"), Px.Hex("#a8ccff") };
     static readonly string[] Keys = { "J", "K", "L", "U", "SP" };
@@ -103,7 +103,7 @@ public class Hud
         bossPanel = new Panel(ui, 50, "vio5", "vio3");
         bIcon = Px.MakeSR("bicon", ui, 52, Px.LAYER_UI); bIcon.sprite = Atlas.Single("boss_icon");
         bFrame = MkRect(ui, 52, "ink"); bBg = MkRect(ui, 53, "crim4"); bUnder = MkRect(ui, 54, "ink"); bLag = MkRect(ui, 55, "critP"); bFill = MkRect(ui, 56, "ink"); bShine = MkRect(ui, 57, "ink");
-        bName = new PixelText(ui, 58); bLayers = new PixelText(ui, 58);
+        bName = new PixelText(ui, 58); bLayers = new PixelText(ui, 58); bStage = new PixelText(ui, 58);
     }
 
     static Sprite MakeKey()
@@ -259,6 +259,8 @@ public class Hud
         bossPanel.Set(90, 158, 228, 20, play && boss);
         bIcon.enabled = play && boss; Px.Place(bIcon.transform, 93, 161);
         bName.Set("KING SHROOM", "gold", 110, 176, play && boss);
+        string stg = "STAGE " + Mathf.Max(1, b.Stage) + "/3";
+        bStage.Set(stg, b.Stage >= 3 ? "crit" : "white", 190 - PixelText.Width(stg) / 2, 176, play && boss);
         if (play && boss)
         {
             int BX = 109, BY = 160, BW = 206;
