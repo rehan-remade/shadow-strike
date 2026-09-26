@@ -12,7 +12,7 @@ const root = resolve(here, '../prototype');
 const html = readFileSync(join(root, 'src/shell.html'), 'utf8')
   .replace('%%TITLE%%', 'bake')
   .replace('%%ENGINE%%', () => readFileSync(join(root, 'src/engine.js'), 'utf8'))
-  .replace('%%SKILL%%', () => readFileSync(join(root, 'src/skills/05-avenger.js'), 'utf8') + '\n' + ['rpg-art.js', 'rpg-audio.js'].filter(f => existsSync(join(here, f))).map(f => readFileSync(join(here, f), 'utf8')).join('\n') + '\n' + readFileSync(join(here, 'bake.js'), 'utf8'))
+  .replace('%%SKILL%%', () => readFileSync(join(root, 'src/skills/05-avenger.js'), 'utf8') + '\n' + ['rpg-art.js', 'rpg-audio.js', ...readdirSync(here).filter(f => /^rpg-class-.*\.js$/.test(f)).sort()].filter(f => existsSync(join(here, f))).map(f => readFileSync(join(here, f), 'utf8')).join('\n') + '\n' + readFileSync(join(here, 'bake.js'), 'utf8'))
   .replace('boot();', 'boot();\n');
 const page = join(here, 'bake.html');
 writeFileSync(page, html);

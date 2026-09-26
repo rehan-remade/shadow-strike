@@ -46,7 +46,7 @@ public class Game : MonoBehaviour
     Color gradeCol;
     float acc, saveT, bossSpawnT = -1;
     Inp edges;
-    bool qEdge;
+    bool qEdge, screens0;   // screens0: -classselect capture mode (cycles the cards)
     string pendingMap, pendingPortal;
     public bool capture, autoplay;
     string capDir;
@@ -68,6 +68,9 @@ public class Game : MonoBehaviour
             if (args[i] == "-bosshp" && i + 1 < args.Length) Boss.MAX_HP = float.Parse(args[i + 1], System.Globalization.CultureInfo.InvariantCulture);
             if (args[i] == "-map" && i + 1 < args.Length) Autoplay.StartMap = args[i + 1];
             if (args[i] == "-level" && i + 1 < args.Length) Autoplay.StartLevel = int.Parse(args[i + 1]);
+            if (args[i] == "-climbtest") Autoplay.ClimbTest = true;
+            if (args[i] == "-class" && i + 1 < args.Length) Autoplay.StartClass = args[i + 1];
+            if (args[i] == "-classselect") screens0 = true;
         }
         if (capture) { Time.captureFramerate = 60; Directory.CreateDirectory(capDir); capTex = new Texture2D(Px.W, Px.H, TextureFormat.RGB24, false); }
         Atlas.Load();
@@ -102,9 +105,10 @@ public class Game : MonoBehaviour
         LoadMap("town", null);
         player.SetVisible(false);
         Sfx.Music("bgm_title");
+        if (screens0) screens.Choosing = true;
         if (autoplay)
         {
-            StartGame(true);
+            StartGame(true, Autoplay.StartClass);
             if (Autoplay.StartLevel > 1) { Stats.D.level = Autoplay.StartLevel; Stats.D.hp = Stats.MaxHp; Stats.D.mp = Stats.MaxMp; Stats.D.red = 30; Stats.D.blue = 30; Stats.D.quest = 3; }
             if (Autoplay.StartMap != null) pendingMap = Autoplay.StartMap;
         }
@@ -127,9 +131,11 @@ public class Game : MonoBehaviour
     }
 
     // ------------------------------------------------------------------ game flow
-    public void StartGame(bool fresh)
+    public void StartGame(bool fresh, string cls)
     {
-        if (fresh) Stats.NewGame(); else Stats.Load();
+        if (fresh) Stats.NewGame(cls ?? "nightlord"); else Stats.Load();
+        if (!Classes.Available(Classes.Cur)) Stats.D.cls = "nightlord";
+        player.SetClass(Classes.Cur);
         state = State.Play; playStart = time;
         screens.HideTitle();
         Transition(Stats.D.map, null);
@@ -302,7 +308,8 @@ public class Game : MonoBehaviour
         if (pendingMap != null && fade >= 1) { LoadMap(pendingMap, pendingPortal); pendingMap = null; fadeTarget = 0; }
 
         bool uiOpen = dialog.Open || shop.Open || screens.Paused;
-        if (state == State.Title) { screens.TitleTick(inp); inp = default(Inp); }
+        if (screens0 && frameNo % 90 == 45) inp.navR = true;
+        if (state == State.Title) { if (screens.Choosing) screens.ClassTick(inp); else screens.TitleTick(inp); inp = default(Inp); }
         else if (dialog.Open) { dialog.Tick(inp); inp = default(Inp); }
         else if (shop.Open) { shop.Tick(inp); inp = default(Inp); }
         else if (screens.Paused) { screens.PauseTick(inp, inp.quit); inp = default(Inp); }

@@ -229,8 +229,17 @@ public class Anim
     }
     public bool Done { get { return !def.loop && t * def.fps >= def.frames.Length; } }
     public Anim(Sheet s, string a) { sheet = s; Play(a, true); }
+    // generic <-> Night Lord animation names, so every class plays through the same code
+    static readonly Dictionary<string, string> Alias = new Dictionary<string, string>
+    {
+        { "throw", "attack" }, { "charge", "cast" }, { "seal", "cast" }, { "slash", "skill" }, { "flash", "jump2" },
+        { "attack", "throw" }, { "cast", "charge" }, { "skill", "slash" }, { "jump2", "flash" }, { "hurt", "crouch" },
+    };
     public void Play(string a, bool restart = false)
     {
+        string alt;
+        if (!sheet.anims.ContainsKey(a) && Alias.TryGetValue(a, out alt) && sheet.anims.ContainsKey(alt)) a = alt;
+        if (!sheet.anims.ContainsKey(a)) a = "idle";
         if (!restart && a == name) return;
         name = a; def = sheet.anims[a]; t = 0;
     }

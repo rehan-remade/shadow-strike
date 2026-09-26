@@ -55,9 +55,44 @@
     ['seal', 8, 0, [[S(P.seal), 'stand'], [S(P.seal, { bob: 1 }), 'stand']]],
     ['slash', 20, 0, [[S(P.high, { wp: 2 }), 'stand'], [S(P.down, { wp: 2 }), 'stand'], [S(P.down, { wp: 2 }), 'stand'], [S(P.up, { wp: 2 }), 'stand'], [S(P.high, { wp: 2 }), 'stand'], [S(P.down, { wp: 2 }), 'stand']]],
     ['crouch', 10, 0, [[S(P.crouch), 'stand']]],
-    ['climb', 6, 1, [[S({ lx: 0, ly: 0, fx: 1, fy: -11, bx: -2, by: -7 }, { wind: 0.8 }), 'tuck'], [S({ lx: 0, ly: 1, fx: 2, fy: -7, bx: -1, by: -11 }, { wind: 0.8, bob: 1 }), 'fall']]],
+    ['climb', 8, 1, [[{ back: 0 }, 'stand'], [{ back: 1 }, 'stand'], [{ back: 2 }, 'stand'], [{ back: 3 }, 'stand']]],
     ['hurt', 10, 0, [[S({ lx: 0, ly: 1, fx: -3, fy: -4, bx: -6, by: -3 }, { wind: 1.6 }), 'fall']]],
   ];
+  // Back view for ropes / ladders: seen from behind, hands alternate up the rope, knees alternate, scarf sways.
+  const BACK_UP = sprite([
+    '......oooo......', '....ooNNNNoo....', '...oNNNnnnNNo...', '...oNnnnnnnno...', '...onnnnnnnno...', '...onnnnnnnno...',
+    '....orrRrrro....', '...onNnnnnNno...', '..onnnnnnnnnno..', '..onnnddddnnno..', '..onnnddddnnno..', '..onnnnnnnnnno..', '...orrrrrrrro...',
+  ], LEG_B());
+  function LEG_B() { return { o: 0, N: C.ninja0, n: C.ninja1, d: C.ninja2, k: C.ninja3, r: C.crim2, R: C.crim1 }; }
+  const BACK_LEGS = {
+    mid: sprite(['...onnnnnnnno...', '...onnnoonnno...', '...onno..onno...', '...onno..onno...', '...onno..onno...', '...okko..okko...', '...okko..okko...'], LEG_B()),
+    left: sprite(['...onnnnnnnno...', '...onnnoonnno...', '...onno..onno...', '...okko..onno...', '...okko..onno...', '.........okko...', '.........okko...'], LEG_B()),
+    right: sprite(['...onnnnnnnno...', '...onnnoonnno...', '...onno..onno...', '...onno..okko...', '...onno..okko...', '...okko.........', '...okko.........'], LEG_B()),
+  };
+  function drawClimb(k, map) {
+    const M = c => (map ? map[c] : c);
+    const x0 = ANX - 8, y0 = GY - 19, bob = k & 1;          // odd frames: body dips 1px between pulls
+    const legs = k === 0 ? BACK_LEGS.left : k === 2 ? BACK_LEGS.right : BACK_LEGS.mid;
+    for (let r = 0; r < 13; r++) BACK_UP[r].forEach((c, i) => { if (c >= 0) px(x0 + i, y0 + r + bob, M(c)); });
+    for (let r = 0; r < 7; r++) legs[r].forEach((c, i) => { if (c >= 0) px(x0 + i, y0 + 13 + r, M(c)); });
+    // scarf tails hang down the right side, swaying
+    const sw = k < 2 ? 0 : 1;
+    line(x0 + 12, y0 + 6 + bob, x0 + 14 + sw, y0 + 12, M(C.crim2)); line(x0 + 13, y0 + 6 + bob, x0 + 15 + sw, y0 + 11, M(C.crim1));
+    line(x0 + 14 + sw, y0 + 12, x0 + 14 + sw, y0 + 15, M(C.crim3));
+    // arms: shoulder -> elbow (out to the side) -> hand on the rope; lighter than the body so they read
+    const seg = (ax, ay, bx, by) => { line(ax - 1, ay, bx - 1, by, M(0)); line(ax + 1, ay, bx + 1, by, M(0)); line(ax, ay - 1, bx, by - 1, M(0)); };
+    const arm = (sx, sy, ex, ey, hx, hy) => {
+      seg(sx, sy, ex, ey); seg(ex, ey, hx, hy);
+      line(sx, sy, ex, ey, M(C.ninja0)); line(ex, ey, hx, hy, M(C.ninja0));
+      R(hx - 1, hy - 1, 3, 3, M(0)); px(hx, hy, M(C.skin)); px(hx - 1, hy, M(C.ninja3)); px(hx + 1, hy, M(C.ninja3));
+    };
+    const high = y0 - 3, low = y0 + 3 + bob;
+    // left hand high on frames 0, right hand high on frame 2, both at mid height otherwise
+    const lh = k === 0 ? high : low, rh = k === 2 ? high : (k === 0 ? low + 2 : low);
+    arm(x0 + 3, y0 + 8 + bob, x0, lh + 5, ANX - 1, lh);
+    arm(x0 + 12, y0 + 8 + bob, x0 + 15, rh + 5, ANX, rh);
+  }
+
   function bakeNinja(name, map) {
     const sh = Sheet(name, NW, NH, 16, { px: NAX, py: NFEET });
     const anims = {};
@@ -67,8 +102,9 @@
       for (const [pose, legs] of frames) {
         clearG(); setLegs(legs);
         time = fr / 12; tick = fr * 5; fr++;
-        AV.setMap(map); AV.drawNinja(pose, ANX, 0, -1); AV.setMap(null);
-        const hp = AV.handPos(pose, ANX, 0);
+        if (pose.back !== undefined) drawClimb(pose.back, map);
+        else { AV.setMap(map); AV.drawNinja(pose, ANX, 0, -1); AV.setMap(null); }
+        const hp = pose.back !== undefined ? [ANX, GY - 22] : AV.handPos(pose, ANX, 0);
         sh.add(off, ANX - NAX, GY - NFEET, [hp[0] - ANX, GY - hp[1]]);   // hand pixel offset from pivot (unity: x right, y up)
         idx.push(i++);
       }
@@ -81,6 +117,15 @@
   bakeNinja('ninja', null);
   bakeNinja('ninja_clone', AV.CLONE_MAP);
   bakeNinja('ninja_ghost', AV.GHOST_MAP);
+  { // class-select portrait for the Night Lord: framed bust from the idle pose, scaled x2
+    clearG(); setLegs('stand'); time = 0; tick = 0; AV.drawNinja(S(P.ready), ANX, 0, -1);
+    const bust = mk(17, 17); bust.getContext('2d').drawImage(off, ANX - 9, GY - 22, 17, 17, 0, 0, 17, 17);
+    const pc = mk(34, 34), x = pc.getContext('2d');
+    x.fillStyle = PAL[C.vio4]; x.fillRect(0, 0, 34, 34); x.fillStyle = PAL[C.vio5]; x.fillRect(1, 1, 32, 32);
+    x.imageSmoothingEnabled = false; x.drawImage(bust, 0, 0, 17, 17, 0, 2, 34, 34);
+    x.fillStyle = PAL[C.gold]; x.fillRect(0, 0, 34, 1); x.fillRect(0, 33, 34, 1); x.fillRect(0, 0, 1, 34); x.fillRect(33, 0, 1, 34);
+    png('portrait_pc_nightlord', pc);
+  }
 
   // ------------------------------------------------------------------ shurikens
   function bakeBig(name, dark) {
@@ -302,7 +347,7 @@
     px(sx - 2, sy, C.critR); px(sx - 1, sy, C.critP); px(sx, sy, 35); px(sx + 1, sy, C.critP); px(sx + 2, sy, C.critR);
     px(sx - 1, sy + 1, C.critR); px(sx, sy + 1, C.critP); px(sx + 1, sy + 1, C.critR); px(sx, sy + 2, C.critP);
     const c = mk(5, 5); c.getContext('2d').drawImage(off, 20, 20, 5, 5, 0, 0, 5, 5); png('critstar', c); }
-  for (const name of ['AVENGER', 'ASSASSINATE', 'SHADOW PARTNER', 'KING SHROOM', 'BOSS CLEAR']) {
+  for (const name of ['AVENGER', 'ASSASSINATE', 'SHADOW PARTNER', 'KING SHROOM', 'BOSS CLEAR', 'BRANDISH', 'DRAGON FURY', 'RAGE', 'BLIZZARD', 'METEOR', 'ICE STRIKE', 'ANGEL RAY', 'GENESIS', 'HEAL', 'POWER SHOT', 'HURRICANE', 'ARROW BOMB']) {
     const key = 'call_' + name.split(' ')[0].toLowerCase();
     const sh = Sheet(key, 192, 18, 8, { y: 2, fps: 30 });
     for (let i = 0; i < 69; i++) { clearG(); callName = name; callT = i / 30; tick = i * 2; drawCallout(); sh.add(off, 0, 2); }
@@ -348,6 +393,7 @@
   }
   window.BK = { Sheet, png, Grid, OUT, clearG, shroom, wav, renderSnd, NANIMS, setLegs, AV, S, P };
   if (window.RPG_ART) window.RPG_ART(window.BK);
+  for (const k of Object.keys(window).filter(k => k.startsWith('RPG_CLASS_')).sort()) window[k](window.BK);
   window.BAKE = async function () {
     const list = [['hit', 0.5], ['hitBig', 1], ['whoosh', 0.8, 0.3], ['charge', 1.2, 0.5], ['star', 0.3], ['stick', 0.3], ['tink', 0.3], ['whirr', 1.2, 0.8],
       ['grind', 0.8], ['shing', 0.8], ['swish', 0.4], ['poof', 0.6], ['blink', 0.4], ['slash', 0.6], ['xslash', 1.4], ['coin', 0.5]];

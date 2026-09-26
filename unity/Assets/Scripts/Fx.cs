@@ -4,7 +4,7 @@ using UnityEngine;
 // One-shot sheet animations (puffs, X slash, slash arcs, callouts), impact crosses and blink afterimages.
 public class Fx
 {
-    class OneShot { public SpriteRenderer sr; public Sheet sheet; public int first, count; public float fps, t; public bool on; }
+    class OneShot { public SpriteRenderer sr; public Sheet sheet; public int first, count; public float fps, t, loopFor; public bool on; }
     readonly List<OneShot> shots = new List<OneShot>();
 
     class Cross { public SpriteRenderer[] arms = new SpriteRenderer[5]; public float t; public bool big, on; public int x, y; }
@@ -31,13 +31,13 @@ public class Fx
     public bool CalloutActive { get { return callT >= 0; } }
 
     // Play frames [first, first+count) of a sheet once at (x, y). fx = draw on the bright FX layer.
-    public void Play(string sheet, float x, float y, bool fx = true, int first = 0, int count = -1, bool flip = false, int order = 55)
+    public void Play(string sheet, float x, float y, bool fx = true, int first = 0, int count = -1, bool flip = false, int order = 55, float loopFor = 0)
     {
         var s = Atlas.Sheets[sheet];
         OneShot o = null;
         foreach (var q in shots) if (!q.on && q.sr.gameObject.layer == (fx ? Px.LAYER_FX : 0)) { o = q; break; }
         if (o == null) { o = new OneShot { sr = Px.MakeSR(sheet, fx ? Game.I.fx : Game.I.world, order, fx ? Px.LAYER_FX : 0) }; shots.Add(o); }
-        o.sheet = s; o.first = first; o.count = count < 0 ? s.count - first : count; o.fps = s.Meta("fps", 24); o.t = 0; o.on = true;
+        o.sheet = s; o.first = first; o.count = count < 0 ? s.count - first : count; o.fps = s.anims.ContainsKey("play") ? s.anims["play"].fps : s.Meta("fps", 24); o.t = 0; o.on = true; o.loopFor = loopFor;
         o.sr.enabled = true; o.sr.flipX = flip; o.sr.sortingOrder = order;
         o.sr.sprite = s.frames[first];
         Px.Place(o.sr.transform, x, y);
@@ -60,6 +60,7 @@ public class Fx
 
     public void Callout(string key)
     {
+        if (!Atlas.Sheets.ContainsKey("call_" + key)) return;
         callSheet = Atlas.Sheets["call_" + key]; callT = 0;
         callout.enabled = true;
         // centred, below the minimap / boss bar
@@ -73,7 +74,8 @@ public class Fx
             if (!o.on) continue;
             o.t += Px.DT;
             int f = Mathf.FloorToInt(o.t * o.fps);
-            if (f >= o.count) { o.on = false; o.sr.enabled = false; continue; }
+            if (o.loopFor > 0) { if (o.t >= o.loopFor) { o.on = false; o.sr.enabled = false; continue; } f %= o.count; }
+            else if (f >= o.count) { o.on = false; o.sr.enabled = false; continue; }
             o.sr.sprite = o.sheet.frames[o.first + f];
         }
         foreach (var c in crosses)

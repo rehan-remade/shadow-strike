@@ -220,8 +220,8 @@ public class Drops
             {
                 d.on = false; d.sr.enabled = false;
                 G.parts.Burst(d.x, d.y + 4, 6, Particles.SPARK, 30, 0.3f, 0, true);
-                if (d.id == "meso") { Stats.D.meso += d.n; G.hud.Chat("YOU HAVE GAINED MESOS (+" + d.n + ")", "white"); Sfx.Play("meso", 0.7f); }
-                else { Stats.AddItem(d.id, d.n); G.hud.Chat("YOU HAVE GAINED AN ITEM (" + ItemName(d.id) + ")", "white"); Sfx.Play("pickup"); }
+                if (d.id == "meso") { Stats.D.meso += d.n; G.hud.Gain("MESO", d.n, "white"); Sfx.Play("meso", 0.7f); }
+                else { Stats.AddItem(d.id, d.n); G.hud.Chat("+1 " + ItemName(d.id), "white", 2.2f); Sfx.Play("pickup"); }
             }
         }
     }

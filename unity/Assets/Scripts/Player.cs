@@ -3,13 +3,13 @@ using UnityEngine;
 
 // The Night Lord. MapleStory movement (one-way platforms, drop-through, ropes/ladders, Flash Jump) and the
 // level-gated skill kit: J Triple Throw, K Avenger, L Assassinate, U Shadow Partner. 1/2 drink potions.
-public class Player
+public partial class Player
 {
     const float RUN = 70, GRAV = 430, JUMP_V = 158, FLASH_VX = 200, FLASH_VY = 70, AIR_ACC = 320, CLIMB = 42;
     public const float CD_THROW = 0.36f, CD_AV = 4f, CD_AS = 6f, CD_SP = 30f, SP_DUR = 20f;
     const int DELAY = 6;
 
-    enum Act { None, Throw, Charge, AvThrow, Seal, Blink, Slash }
+    enum Act { None, Throw, Charge, AvThrow, Seal, Blink, Slash, CAct }
     Act act = Act.None;
     float actT;
     int throwStage;
@@ -28,9 +28,9 @@ public class Player
     public bool dead, frozen;
     float deadT, tombY, tombVy;
 
-    readonly Sheet sh, shClone, shGhost, bigS, bigC;
+    Sheet sh, shClone, shGhost, bigS, bigC;
     readonly SpriteRenderer sr, csr, chargeSR, cChargeSR, tomb, prompt;
-    readonly Anim anim;
+    Anim anim;
     bool visible = true;
 
     struct Snap { public float x, y; public int face, frame; public bool vis, charging; public int chargeK; }
@@ -68,14 +68,14 @@ public class Player
     public void SetVisible(bool v) { sr.enabled = v; if (!v) { csr.enabled = false; prompt.enabled = false; } }
 
     Vector2 Hand(Sheet s, int frame, float px, float py, int f) { var h = s.hands[frame]; return new Vector2(px + (f > 0 ? h.x : -h.x - 1), py + h.y); }
-    Vector2 CloneOffset(int f) { return new Vector2(-f * 13, 5); }
-    static float Dmg(float mult) { return Stats.Atk * mult; }
+    Vector2 CloneOffset(int f) { return new Vector2(-f * 7, 0); }   // same ground, just behind like a shadow
+    float Dmg(float mult) { return Stats.Atk * mult * (rageT > 0 ? 1.3f : 1f); }
 
     bool Spend(int skill)
     {
         var G = Game.I;
-        if (!Stats.Unlocked(skill)) { G.hud.Chat(Stats.SkillName[skill] + " UNLOCKS AT LV " + Stats.SkillLevel[skill], "white"); Sfx.Play("deny"); return false; }
-        if (Stats.D.mp < Stats.SkillMp[skill]) { G.hud.Chat("NOT ENOUGH MP.", "white"); Sfx.Play("deny"); return false; }
+        if (!Stats.Unlocked(skill)) { G.hud.Chat(Stats.SkillName[skill] + " UNLOCKS AT LV " + Stats.SkillLevel[skill], "white", 2f); Sfx.Play("deny"); return false; }
+        if (Stats.D.mp < Stats.SkillMp[skill]) { G.hud.Chat("NOT ENOUGH MP.", "white", 2f); Sfx.Play("deny"); return false; }
         Stats.D.mp -= Stats.SkillMp[skill];
         return true;
     }
@@ -131,9 +131,10 @@ public class Player
                 var fh = M.At(x, y);
                 if (grounded && inp.down && fh != null && !fh.solid) { dropIgnore = fh.id; dropT = 0.3f; grounded = false; vy = 20; }
                 else if (grounded) { vy = JUMP_V; grounded = false; Sfx.Play("jump", 0.6f); }
-                else if (!flashUsed) FlashJump();
+                else if (!flashUsed) { if (IsNL) FlashJump(); else DoMobility(); }
             }
-            if (inp.partner && cdSp <= 0) { if (Spend(3)) StartSeal(); }
+            if (!IsNL) ClassInput(inp);
+            else if (inp.partner && cdSp <= 0) { if (Spend(3)) StartSeal(); }
             else if (inp.assassin && cdAs <= 0) { if (Spend(2)) StartBlink(); }
             else if (inp.avenger && cdAv <= 0) { if (Spend(1)) StartCharge(); }
             else if (inp.attack && cdThrow <= 0) StartThrow();
@@ -282,6 +283,7 @@ public class Player
     void RunAct()
     {
         var G = Game.I;
+        if (act == Act.CAct) { ClassRun(); return; }
         switch (act)
         {
             case Act.Throw:
@@ -455,5 +457,6 @@ public class Player
         string hint = G.InteractHint();
         prompt.enabled = hint != null && grounded && act == Act.None;
         if (prompt.enabled) { prompt.sprite = G.hud.UpKey; Px.Place(prompt.transform, x - 5, y + 26 + ((G.tick >> 4) & 1)); }
+        ClassDraw();
     }
 }

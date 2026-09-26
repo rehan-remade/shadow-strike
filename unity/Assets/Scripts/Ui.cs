@@ -35,8 +35,9 @@ public class Hud
     readonly SpriteRenderer mesoIcon, miniMap, miniDot, partnerBar;
     readonly List<SpriteRenderer> miniMarks = new List<SpriteRenderer>();
     // chat
-    readonly PixelText[] chatT = new PixelText[5];
-    readonly List<(string s, string style, float t)> chat = new List<(string, string, float)>();
+    readonly PixelText[] chatT = new PixelText[4];
+    class ChatLine { public string s, style, kind; public float t, life; public int val; }
+    readonly List<ChatLine> chat = new List<ChatLine>();
     string toast, toastStyle; float toastTime;
     // boss bar
     readonly SpriteRenderer bIcon, bFrame, bBg, bUnder, bLag, bFill, bShine;
@@ -82,7 +83,7 @@ public class Hud
             var s = new Slot();
             int x = SLX + i * 18;
             s.border = MkRect(ui, 52, "vio3"); Box(s.border, x, 2, 16, 16);
-            s.icon = Px.MakeSR("icon", ui, 53, Px.LAYER_UI); s.icon.sprite = i < 4 ? icons.frames[i] : (Atlas.Named("icons2", "flash") ?? icons.frames[0]);
+            s.icon = Px.MakeSR("icon", ui, 53, Px.LAYER_UI);
             Px.Place(s.icon.transform, x + 1, 3);
             s.cool = Px.MakeSR("cool", ui, 54, Px.LAYER_UI);
             s.lockIcon = Px.MakeSR("lock", ui, 55, Px.LAYER_UI); s.lockIcon.sprite = Atlas.Named("icons2", "lock"); Px.Place(s.lockIcon.transform, x + 1, 3);
@@ -121,7 +122,20 @@ public class Hud
         return Sprite.Create(t, new Rect(0, 0, 11, 9), Vector2.zero, 1f, 0, SpriteMeshType.FullRect);
     }
 
-    public void Chat(string s, string style = "white") { chat.Insert(0, (s, style, Game.I.time)); if (chat.Count > 5) chat.RemoveAt(5); }
+    // short-lived log lines (bottom-left); pickups merge into one counter line so the log stays small
+    public void Chat(string s, string style = "white", float life = 4f)
+    {
+        chat.Insert(0, new ChatLine { s = s, style = style, t = Game.I.time, life = life });
+        if (chat.Count > chatT.Length) chat.RemoveAt(chat.Count - 1);
+    }
+    public void Gain(string kind, int n, string style)
+    {
+        var G = Game.I;
+        foreach (var c in chat)
+            if (c.kind == kind && G.time - c.t < 1.5f) { c.val += n; c.s = "+" + c.val + " " + kind; c.t = G.time; return; }
+        Chat("+" + n + " " + kind, style, 2.2f);
+        chat[0].kind = kind; chat[0].val = n;
+    }
     public void Toast(string s, string style = "goldBig") { toast = s; toastStyle = style; toastTime = 2.4f; }
 
     // Minimap texture of footholds / climbs / portals for the current map
@@ -172,7 +186,8 @@ public class Hud
             potN[i].Set(potCount[i].ToString(), "white", x + 16 - PixelText.Width(potCount[i].ToString()), 7, play);
             potK[i].Set((i + 1).ToString(), "gold", x + 2, 17, play);
         }
-        float[] cd = { P.cdThrow / Player.CD_THROW, P.cdAv / Player.CD_AV, P.cdAs / Player.CD_AS, P.cdSp / Player.CD_SP, 0 };
+        var CC = Classes.Cur.cd;
+        float[] cd = { P.cdThrow / CC[0], P.cdAv / CC[1], P.cdAs / CC[2], P.cdSp / CC[3], 0 };
         int[] map = { 0, 1, 2, 3, 4 };
         for (int i = 0; i < 5; i++)
         {
@@ -184,6 +199,7 @@ public class Hud
             s.wasCooling = cooling;
             if (s.flash > 0) s.flash -= Px.DT;
             s.border.enabled = s.icon.enabled = play;
+            s.icon.sprite = Classes.Cur.Icon(i);
             s.border.color = Px.P(s.flash > 0 ? "white" : i == 3 && P.CloneOn && ((G.tick >> 3) & 1) == 1 ? "vio1" : !unlocked ? "ink" : cooling ? "vio4" : "vio3");
             int h = unlocked ? Mathf.CeilToInt(14 * f) : 14;
             s.cool.enabled = play && h > 0;
@@ -219,8 +235,9 @@ public class Hud
         // ---------------- chat log
         for (int i = 0; i < chatT.Length; i++)
         {
-            bool on = play && i < chat.Count && G.time - chat[i].t < 7f;
-            if (on) chatT[i].Set(chat[i].s, chat[i].style, 4, 29 + i * 7); else chatT[i].Hide();
+            float age = i < chat.Count ? G.time - chat[i].t : 99;
+            bool on = play && i < chat.Count && age < chat[i].life && (age < chat[i].life - 0.4f || ((G.tick >> 1) & 1) == 0);
+            if (on) chatT[i].Set(chat[i].s, chat[i].style, 4, 28 + i * 7); else chatT[i].Hide();
         }
         // ---------------- toast
         if (toastTime > 0)
@@ -451,6 +468,17 @@ public class Screens
     readonly PixelText[] help = new PixelText[12];
     int sel;
     public bool Paused;
+    // class select
+    public bool Choosing;
+    int csel = 4;
+    float cT;
+    readonly Panel info;
+    readonly Panel[] cards = new Panel[5];
+    readonly SpriteRenderer[] portraits = new SpriteRenderer[5];
+    readonly SpriteRenderer preview, arrow;
+    readonly PixelText cTitle, cName, cRole, cHelp;
+    readonly PixelText[] cDesc = new PixelText[3], cSkills = new PixelText[5];
+    Anim prevAnim;
 
     public Screens()
     {
@@ -460,6 +488,12 @@ public class Screens
         for (int i = 0; i < 2; i++) menu[i] = new PixelText(ui, 96);
         sub = new PixelText(ui, 96); press = new PixelText(ui, 96); ver = new PixelText(ui, 96);
         pause = new Panel(ui, 97, "vio5", "gold");
+        info = new Panel(ui, 90, "vio5", "vio3");
+        for (int i = 0; i < 5; i++) { cards[i] = new Panel(ui, 91, "ink", "vio3"); portraits[i] = Px.MakeSR("portrait", ui, 93, Px.LAYER_UI); }
+        preview = Px.MakeSR("preview", ui, 94, Px.LAYER_UI); arrow = Px.MakeSR("arrow", ui, 94, Px.LAYER_UI); arrow.sprite = Px.White; arrow.color = Px.P("gold");
+        cTitle = new PixelText(ui, 96); cName = new PixelText(ui, 96); cRole = new PixelText(ui, 96); cHelp = new PixelText(ui, 96);
+        for (int i = 0; i < 3; i++) cDesc[i] = new PixelText(ui, 96);
+        for (int i = 0; i < 5; i++) cSkills[i] = new PixelText(ui, 96);
         for (int i = 0; i < help.Length; i++) help[i] = new PixelText(ui, 98);
     }
 
@@ -481,9 +515,68 @@ public class Screens
         }
         press.Set("SPACE TO SELECT", "white", Mathf.Round((Px.W - PixelText.Width("SPACE TO SELECT")) / 2f), 48, ((G.tick >> 5) & 1) == 0);
         ver.Set("V0.1", "dark", 4, 8);
-        if (i.confirm) { Sfx.Play("quest"); G.StartGame(opts[sel] == "NEW GAME"); HideTitle(); }
+        if (i.confirm)
+        {
+            Sfx.Play("quest"); HideTitle();
+            if (opts[sel] == "NEW GAME") { Choosing = true; cT = 0; prevAnim = null; }
+            else G.StartGame(false, null);
+        }
     }
     public void HideTitle() { logo.enabled = false; foreach (var m in menu) m.Hide(); sub.Hide(); press.Hide(); ver.Hide(); }
+
+    // ---------------------------------------------------------------- class select
+    public void ClassTick(Inp i)
+    {
+        var G = Game.I;
+        HideTitle();
+        var list = Classes.All;
+        if (i.navL) { csel = (csel + list.Count - 1) % list.Count; prevAnim = null; Sfx.Play("click"); }
+        if (i.navR) { csel = (csel + 1) % list.Count; prevAnim = null; Sfx.Play("click"); }
+        if (i.cancel) { Choosing = false; HideClass(); Sfx.Play("click"); return; }
+        var c = list[csel];
+        bool ok = Classes.Available(c);
+        if (i.confirm && ok) { Choosing = false; HideClass(); Sfx.Play("quest"); G.StartGame(true, c.id); return; }
+        cT += Px.DT;
+        string tt = "CHOOSE YOUR CLASS";
+        cTitle.Set(tt, "goldBig", Mathf.Round((Px.W - PixelText.Width(tt, 2)) / 2f), 172);
+        int step = 46, x0 = (Px.W - (4 * step + 38)) / 2;
+        for (int k = 0; k < list.Count; k++)
+        {
+            bool on = k == csel;
+            int cx = x0 + k * step, cy = on ? 116 : 112;
+            cards[k].Set(cx, cy, 38, 38); cards[k].Border(on ? "gold" : "vio3");
+            string pn = list[k].Portrait;
+            portraits[k].enabled = Atlas.Has(pn);
+            if (portraits[k].enabled) { portraits[k].sprite = Atlas.Single(pn); Px.Place(portraits[k].transform, cx + 2, cy + 2); }
+            if (on) { arrow.enabled = ((G.tick >> 4) & 1) == 0; arrow.transform.localScale = new Vector3(5, 2, 1); Px.Place(arrow.transform, cx + 16, cy + 41); }
+        }
+        info.Set(16, 20, 288, 88);
+        // animated preview at 2x (integer scale keeps it pixel-perfect)
+        if (ok)
+        {
+            var sh = Atlas.Sheets[c.sheet];
+            if (prevAnim == null || prevAnim.sheet != sh) prevAnim = new Anim(sh, "idle");
+            float ph = cT % 3.2f;
+            string want = ph < 1.6f ? "idle" : ph < 2.3f ? "run" : "attack";
+            prevAnim.Play(want); prevAnim.Tick();
+            preview.enabled = true; preview.sprite = sh.frames[prevAnim.Frame];
+            preview.transform.localScale = new Vector3(2, 2, 1); Px.Place(preview.transform, 66, 34);
+        }
+        else preview.enabled = false;
+        cName.Set(c.name, "goldBig", 118, 100);
+        cRole.Set(c.role, "white", 118, 86);
+        for (int k = 0; k < 3; k++) cDesc[k].Set(c.desc[k], "white", 118, 76 - k * 8);
+        string[] keys = { "J", "K", "L", "U", "SP" };
+        for (int k = 0; k < 5; k++) cSkills[k].Set(keys[k] + " " + c.skill[k], k == 4 ? "blue" : "green", k < 3 ? 118 + k * 62 : 118 + (k - 3) * 92, k < 3 ? 46 : 36);
+        if (!ok) cSkills[4].Set("COMING SOON", "white", 118, 36);
+        cHelp.Set("ARROWS CHOOSE   SPACE START   ESC BACK", "white", Mathf.Round((Px.W - PixelText.Width("ARROWS CHOOSE   SPACE START   ESC BACK")) / 2f), 12);
+    }
+    public void HideClass()
+    {
+        info.Hide(); foreach (var c in cards) c.Hide(); foreach (var p in portraits) p.enabled = false;
+        preview.enabled = false; arrow.enabled = false; cTitle.Hide(); cName.Hide(); cRole.Hide(); cHelp.Hide();
+        foreach (var d in cDesc) d.Hide(); foreach (var s in cSkills) s.Hide();
+    }
 
     static readonly string[] Help =
     {

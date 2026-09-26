@@ -8,7 +8,7 @@ public class SaveData
     public int level = 1, exp, hp = -1, mp = -1, meso = 50;
     public int red = 5, blue = 3, cap, root, crown, starTier;
     public int quest, qstate, qcount;       // quest chain index, 0 not started / 1 active / 2 ready, kill counter
-    public string map = "town";
+    public string map = "town", cls = "nightlord";
     public bool bossDown, seenIntro;
 }
 
@@ -23,15 +23,15 @@ public class QuestDef
 public static class Stats
 {
     public static SaveData D = new SaveData();
-    public static readonly string[] SkillName = { "TRIPLE THROW", "AVENGER", "ASSASSINATE", "SHADOW PARTNER", "FLASH JUMP" };
+    public static string[] SkillName { get { return Classes.Cur.skill; } }
     public static readonly int[] SkillLevel = { 1, 6, 8, 4, 2 };
-    public static readonly int[] SkillMp = { 0, 10, 16, 20, 2 };
+    public static int[] SkillMp { get { return Classes.Cur.mp; } }
     static readonly int[] StarAtk = { 0, 8, 20 };
     public static readonly string[] StarName = { "SUBI", "STEELY", "ILBI" };
 
     public static int Level { get { return D.level; } }
-    public static int MaxHp { get { return 50 + 22 * D.level; } }
-    public static int MaxMp { get { return 20 + 14 * D.level; } }
+    public static int MaxHp { get { var c = Classes.Cur; return c.hpBase + c.hpLv * D.level; } }
+    public static int MaxMp { get { var c = Classes.Cur; return c.mpBase + c.mpLv * D.level; } }
     public static int Atk { get { return 10 + 4 * D.level + StarAtk[D.starTier]; } }
     public static int ExpNeed(int lvl) { return Mathf.RoundToInt(20 * Mathf.Pow(lvl, 1.7f)); }
     public static bool Unlocked(int skill) { return D.level >= SkillLevel[skill]; }
@@ -81,7 +81,7 @@ public static class Stats
     {
         var G = Game.I;
         D.exp += n;
-        G.hud.Chat("YOU HAVE GAINED EXPERIENCE (+" + n + ")", "gold");
+        G.hud.Gain("EXP", n, "gold");
         while (D.exp >= ExpNeed(D.level) && D.level < 30)
         {
             D.exp -= ExpNeed(D.level);
@@ -101,7 +101,7 @@ public static class Stats
     {
         var q = Cur; var G = Game.I;
         int p = QuestProgress;
-        if (announce || q.kind == "collect") G.hud.Chat("QUEST: " + q.title + " " + Mathf.Min(p, q.need) + "/" + q.need, "green");
+        if (announce || q.kind == "collect") G.hud.Chat(q.title + " " + Mathf.Min(p, q.need) + "/" + q.need, "green", 2.5f);
         if (p >= q.need && D.qstate == 1)
         {
             D.qstate = 2;
@@ -116,9 +116,9 @@ public static class Stats
         var q = Cur; var G = Game.I;
         if (q.kind == "collect") AddItem(q.target, -q.need);
         D.meso += q.rMeso; if (q.rRed > 0) D.red += q.rRed; if (q.rBlue > 0) D.blue += q.rBlue;
-        G.hud.Chat("YOU HAVE GAINED MESOS (+" + q.rMeso + ")", "white");
-        if (q.rRed > 0) G.hud.Chat("YOU HAVE GAINED AN ITEM (RED POTION X" + q.rRed + ")", "white");
-        if (q.rBlue > 0) G.hud.Chat("YOU HAVE GAINED AN ITEM (BLUE POTION X" + q.rBlue + ")", "white");
+        G.hud.Gain("MESO", q.rMeso, "white");
+        if (q.rRed > 0) G.hud.Chat("+" + q.rRed + " RED POTION", "white", 3f);
+        if (q.rBlue > 0) G.hud.Chat("+" + q.rBlue + " BLUE POTION", "white", 3f);
         D.quest++; D.qstate = 0; D.qcount = 0;
         GainExp(q.rExp);
         Sfx.Play("quest");
@@ -139,5 +139,5 @@ public static class Stats
         if (D.hp < 0) D.hp = MaxHp;
         if (D.mp < 0) D.mp = MaxMp;
     }
-    public static void NewGame() { D = new SaveData(); D.hp = MaxHp; D.mp = MaxMp; Save(); }
+    public static void NewGame(string cls) { D = new SaveData { cls = cls }; D.hp = MaxHp; D.mp = MaxMp; Save(); }
 }

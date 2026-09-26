@@ -9,6 +9,8 @@ public static class Autoplay
     public static bool BossDemo;
     public static string StartMap;
     public static int StartLevel = 1;
+    public static bool ClimbTest;
+    public static string StartClass;
     static int lastConfirm;
 
     public static Inp At(int frame)
@@ -18,6 +20,13 @@ public static class Autoplay
         if (G.dialog.Open || G.shop.Open) { if (frame - lastConfirm > 40) { i.confirm = true; lastConfirm = frame; } return i; }
         if (G.state != Game.State.Play || P.dead || frame < 60) return i;
         var D = Stats.D;
+        if (ClimbTest)   // walk to the first rope and climb it (visual check)
+        {
+            float rx = G.map.def.climbs[0].x - P.x;
+            if (Mathf.Abs(rx) > 2 && P.grounded) { if (rx > 0) i.right = true; else i.left = true; }
+            else i.up = true;
+            return i;
+        }
         if (D.hp < Stats.MaxHp * 0.35f && D.red > 0 && frame % 30 == 0) i.pot1 = true;
         if (D.mp < Stats.MaxMp * 0.2f && D.blue > 0 && frame % 30 == 15) i.pot2 = true;
         if (Stats.Unlocked(3) && !P.CloneOn && P.cdSp <= 0 && D.mp >= Stats.SkillMp[3] && frame % 20 == 0) { i.partner = true; return i; }

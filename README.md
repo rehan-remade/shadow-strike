@@ -63,20 +63,36 @@ chain through the woods to the **King Shroom**.
 
 - **Four maps:** *Crownhollow* (town), *Mushroom Grove* (Lv 1–5), *Hollow Deep* (Lv 5–9) and the *Royal Glade* boss arena.
 - **MapleStory movement:** jump up through platforms, press Down+Jump to drop through, climb ropes and ladders, Flash Jump in mid-air, and press Up at portals.
-- **The Night Lord kit:** Triple Throw, Avenger (pierces through monsters and grinds on bosses), Assassinate (blink, double slash, X crit) and Shadow Partner (a delayed mirror clone). Skills unlock as you level and cost MP.
+- **Five classes:** Hero, Arch Mage, Bishop, Bowmaster and Night Lord, each with its own sprite sheet, four skills and a mobility move (see below). Skills unlock as you level and cost MP.
 - **Monsters:** Shellbacks, Caplings, Stumpies and Wisps. They patrol and aggro, show HP bars when hit, and drop mesos and items.
 - **Progression:** EXP and levels with the golden level-up pillar, HP and MP, red and blue potions, a merchant selling throwing-star upgrades, a four-part quest chain, death with a tombstone and an EXP penalty, and autosave.
-- **The UI you remember:** the bottom status bar, the minimap, the chat log ("You have gained experience (+14)"), a quest tracker, portrait dialog boxes, the shop window and a layered boss HP bar.
+- **The UI you remember:** the bottom status bar, the minimap, a compact chat feed that merges and quickly fades pickups ("+42 EXP", "+3 MESOS"), a quest tracker, portrait dialog boxes, the shop window and a layered boss HP bar.
+
+### Classes
+
+<img src="media/classes.png" alt="Class select: Hero, Arch Mage, Bishop, Bowmaster, Night Lord" width="100%">
+
+Pick a class when you start a new game. Each class ports its prototype skill loop into a full playable kit.
+
+| Class | J | K | L | U | Space ×2 |
+|---|---|---|---|---|---|
+| **Hero** (warrior) | Slash | Brandish | Dragon Fury | Rage (aura, +damage) | Leap |
+| **Arch Mage** (magician) | Ice Bolt | Blizzard | Meteor | Ice Strike | Teleport |
+| **Bishop** (priest) | Holy Arrow | Angel Ray | Genesis | Heal | Teleport |
+| **Bowmaster** (archer) | Arrow | Power Shot | Hurricane | Arrow Bomb | Double Jump |
+| **Night Lord** (thief) | Triple Throw | Avenger | Assassinate | Shadow Partner | Flash Jump |
+
+<img src="media/class-skills.png" alt="Hero Dragon Fury, Arch Mage Meteor, Bishop Genesis, Bowmaster Hurricane" width="100%">
 
 ### Controls
 
 | Key | Action |
 |---|---|
 | **← →** | Move |
-| **Space** | Jump · press again in the air for **Flash Jump** |
+| **Space** | Jump · press again in the air for your class's mobility skill |
 | **↓ + Space** | Drop through a platform |
 | **↑** | Climb, talk to an NPC, enter a portal |
-| **J · K · L · U** | Triple Throw · Avenger · Assassinate · Shadow Partner |
+| **J · K · L · U** | Basic attack and the three class skills (see the table above) |
 | **1 · 2** | Red / blue potion |
 | **Esc** | Help and pause (**Q** saves and quits to the title) |
 
@@ -114,7 +130,7 @@ flowchart LR
 
 ```
 prototype/   canvas engine, skill loops (src/), standalone HTML loops, video renderer
-pipeline/    sprite + audio bakers (bake.js, rpg-art.js, rpg-audio.js), asset contract, audio mixer
+pipeline/    sprite + audio bakers (bake.js, rpg-art.js, rpg-class-*.js, rpg-audio.js), asset contracts, audio mixer
 unity/       Unity 6 project - Assets/Scripts (game), Assets/Editor (headless setup/build), Assets/Resources (baked art + audio)
 media/       README images
 ```
@@ -143,7 +159,7 @@ Open `unity/` in Unity 6, or build headless:
 Unity -batchmode -quit -projectPath unity -executeMethod Setup.BuildWin   # or Setup.BuildWeb
 ```
 
-Useful player flags: `-autoplay` (grind bot), `-map grove -level 5` (jump straight in), `-capture <dir> -frames N` (deterministic frame dump).
+Useful player flags: `-autoplay` (grind bot), `-map grove -level 5 -class archmage` (jump straight in), `-classselect`, `-capture <dir> -frames N` (deterministic frame dump).
 
 ---
 
