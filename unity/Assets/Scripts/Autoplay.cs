@@ -11,8 +11,21 @@ public static class Autoplay
     public static int StartLevel = 1;
     public static bool ClimbTest;
     public static string StartClass;
-    public static string SkillTest;   // -skilltest j|k|l|u (walk while casting) or tp (directional teleport)
+    public static string SkillTest;
+    public static bool Showcase;      // -showcase: trailer bot - flashiest skills first, infinite MP, can't be hurt   // -skilltest j|k|l|u (walk while casting) or tp (directional teleport)
     static int lastConfirm;
+
+    static int[] ShowPri(string cls)
+    {
+        switch (cls)
+        {
+            case "hero": return new[] { 3, 1, 2, 0 };        // Worldreaver, Rush, Dragon Fury
+            case "archmage": return new[] { 2, 1, 3, 0 };    // Meteor, Blizzard, Ice Strike
+            case "bishop": return new[] { 1, 2, 0 };         // Angel Ray, Genesis
+            case "bowmaster": return new[] { 2, 1, 3, 0 };   // Hurricane, Power Shot, Arrow Bomb
+            default: return new[] { 1, 2, 0 };               // Avenger, Assassinate
+        }
+    }
 
     public static Inp At(int frame)
     {
@@ -51,7 +64,8 @@ public static class Autoplay
         }
         if (D.hp < Stats.MaxHp * 0.35f && D.red > 0 && frame % 30 == 0) i.pot1 = true;
         if (D.mp < Stats.MaxMp * 0.2f && D.blue > 0 && frame % 30 == 15) i.pot2 = true;
-        if (Stats.Unlocked(3) && !P.CloneOn && P.cdSp <= 0 && D.mp >= Stats.SkillMp[3] && frame % 20 == 0) { i.partner = true; return i; }
+        if (Showcase) D.mp = Stats.MaxMp;
+        if ((!Showcase || P.ClassId == "nightlord") && Stats.Unlocked(3) && !P.CloneOn && P.cdSp <= 0 && D.mp >= Stats.SkillMp[3] && frame % 20 == 0) { i.partner = true; return i; }
 
         // in town with a quest to pick up: walk to the elder and talk
         if (G.map.def.id == "town" && D.qstate != 1 && Stats.Cur != null)
@@ -83,6 +97,17 @@ public static class Autoplay
         if (ad > 80) { if (want > 0) i.right = true; else i.left = true; }
         else if (ad < 18 && !wall) { if (want > 0) i.left = true; else i.right = true; }
         else if (P.face != want) { if (want > 0) i.right = true; else i.left = true; }
+        else if (Showcase)
+        {
+            foreach (int sl in ShowPri(P.ClassId))
+            {
+                if (sl == 0) { if (P.cdThrow <= 0) i.attack = true; break; }
+                float cd = sl == 1 ? P.cdAv : sl == 2 ? P.cdAs : P.cdSp;
+                if (!Stats.Unlocked(sl) || cd > 0) continue;
+                if (sl == 1) i.avenger = true; else if (sl == 2) i.assassin = true; else i.partner = true;
+                break;
+            }
+        }
         else
         {
             if (Stats.Unlocked(2) && P.cdAs <= 0 && D.mp >= Stats.SkillMp[2] && frame % 7 == 0) i.assassin = true;

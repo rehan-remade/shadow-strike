@@ -374,7 +374,7 @@ public partial class Player
     // ------------------------------------------------------------------ getting hit
     public void Hurt(int dmg, int dirKnock)
     {
-        if (!CanBeHit) return;
+        if (!CanBeHit || Autoplay.Showcase) return;
         var G = Game.I;
         Stats.D.hp = Mathf.Max(0, Stats.D.hp - dmg);
         G.pops.Show(dmg.ToString(), "vio", x, y + 30);

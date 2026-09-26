@@ -250,7 +250,7 @@ public class Hud
         }
         else toastTxt.Hide();
         // first-time controls hint
-        bool showHint = play && G.time - G.playStart < 14 && !G.fxs.CalloutActive && !boss;
+        bool showHint = play && G.time - G.playStart < 14 && !G.fxs.CalloutActive && !boss && !Autoplay.Showcase;
         string ht = "ARROWS MOVE  SPACE JUMP  J ATTACK  UP TALK/PORTAL  ESC HELP";
         hintT.Set(ht, "white", Mathf.Round((Px.W - PixelText.Width(ht)) / 2f), 130, showHint);
 

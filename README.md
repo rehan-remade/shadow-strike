@@ -13,9 +13,9 @@
 ![WebAudio](https://img.shields.io/badge/WebAudio-synthesised%20sound-d42040)
 ![Built with Claude Code](https://img.shields.io/badge/built%20with-Claude%20Code-de8a6a)
 
-<img src="media/gameplay.gif" alt="Fighting Caplings in the Mushroom Grove" width="720">
+<img src="media/gameplay.gif" alt="The five classes: Hero, Arch Mage, Bishop, Bowmaster, Night Lord" width="720">
 
-**[▶ RPG trailer](https://github.com/rehan-remade/hollow-crown/releases/download/v0.1/shadow-strike-rpg-trailer.mp4)** &nbsp;·&nbsp; **[▶ Skill loops video](https://github.com/rehan-remade/hollow-crown/releases/download/v0.1/shadow-strike-skill-loops.mp4)**
+**[▶ 30s demo video](https://github.com/rehan-remade/hollow-crown/releases/download/v0.2/hollow-crown-demo.mp4)** &nbsp;·&nbsp; **[▶ Skill loops video](https://github.com/rehan-remade/hollow-crown/releases/download/v0.1/shadow-strike-skill-loops.mp4)**
 
 </div>
 

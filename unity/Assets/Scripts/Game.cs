@@ -69,6 +69,7 @@ public class Game : MonoBehaviour
             if (args[i] == "-map" && i + 1 < args.Length) Autoplay.StartMap = args[i + 1];
             if (args[i] == "-level" && i + 1 < args.Length) Autoplay.StartLevel = int.Parse(args[i + 1]);
             if (args[i] == "-climbtest") Autoplay.ClimbTest = true;
+            if (args[i] == "-showcase") { autoplay = true; Autoplay.Showcase = true; }
             if (args[i] == "-skilltest" && i + 1 < args.Length) Autoplay.SkillTest = args[i + 1];
             if (args[i] == "-class" && i + 1 < args.Length) Autoplay.StartClass = args[i + 1];
             if (args[i] == "-classselect") screens0 = true;
