@@ -18,4 +18,5 @@ public interface ITarget
     void Hit(float x, float y, HitOpt o, int dir);
     void StickStar(float x, float y, bool clone);
     void Mark();           // Assassinate X-mark reaction
+    void Drag(float toX);  // carried along by a charge (Hero's Rush); heavy targets ignore it
 }

@@ -72,13 +72,13 @@ chain through the woods to the **King Shroom**.
 
 <img src="media/classes.png" alt="Class select: Hero, Arch Mage, Bishop, Bowmaster, Night Lord" width="100%">
 
-Pick a class when you start a new game. Each class ports its prototype skill loop into a full playable kit.
+Pick a class when you start a new game. Each class ports its prototype skill loop into a full playable kit. Skills don't root you: keep walking and jumping while you cast.
 
 | Class | J | K | L | U | Space ×2 |
 |---|---|---|---|---|---|
-| **Hero** (warrior) | Slash | Brandish | Dragon Fury | Rage (aura, +damage) | Leap |
-| **Arch Mage** (magician) | Ice Bolt | Blizzard | Meteor | Ice Strike | Teleport |
-| **Bishop** (priest) | Holy Arrow | Angel Ray | Genesis | Heal | Teleport |
+| **Hero** (warrior) | Slash | Rush (charge that carries monsters) | Dragon Fury | Worldreaver (ground slam, erupting fissures) | Leap |
+| **Arch Mage** (magician) | Ice Bolt | Blizzard | Meteor | Ice Strike | Teleport (aim with the arrows) |
+| **Bishop** (priest) | Holy Arrow | Angel Ray | Genesis | Heal | Teleport (aim with the arrows) |
 | **Bowmaster** (archer) | Arrow | Power Shot | Hurricane | Arrow Bomb | Double Jump |
 | **Night Lord** (thief) | Triple Throw | Avenger | Assassinate | Shadow Partner | Flash Jump |
 
@@ -123,7 +123,7 @@ flowchart LR
 
 - **No hand-drawn assets.** Characters are string-map sprites with procedural arms, weapons and scarves. Monsters and props are drawn into index grids and auto-outlined. Skies, mountains and forests come from dithered gradients and seeded noise. Music comes from a tiny sequencer in `OfflineAudioContext`.
 - **The prototype is the source of truth.** The bake step runs the prototype's own drawing code in headless Chrome over the DevTools protocol and captures each frame. The Unity game and the canvas loops therefore share exactly the same art.
-- **Pixel-perfect Unity.** One pixel equals one world unit, and point filtering is on. Every position is snapped to integers. The game renders into a native-resolution render texture, then a world layer and an FX layer pass through a small composite shader: a colour grade during ults, FX kept bright on top, a rippled water reflection, flashes and fades. The result is upscaled by a whole number.
+- **Pixel-perfect Unity.** One pixel equals one world unit, and point filtering is on. Every position is snapped to integers. The game renders into a native-resolution render texture, then a world layer and an FX layer pass through a small composite shader: a colour grade for the boss entrance, FX kept bright on top, a rippled water reflection, flashes and fades. The result is upscaled by a whole number.
 - **The game is deterministic.** A fixed 60 Hz tick, seeded randomness and scripted input mean the Unity build can record its own trailer frame by frame: `-autoplay -capture <dir>`.
 
 ### Repository layout

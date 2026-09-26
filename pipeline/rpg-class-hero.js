@@ -1,6 +1,8 @@
 // Shadow Strike: HERO (warrior) class. The steel knight from src/skills/06-dragon.js (Dragon Fury):
-// steel plate, red cape + plume, big broadsword, crimson Brandish crescents, spectral dragon, rage aura.
-// Sheets: pc_hero, pc_hero_ghost, portrait_pc_hero, icons_hero, fx_hero_slash/brandish/dragon/rage.
+// steel plate, red cape + plume, big broadsword, crimson crescents, spectral dragon, Rush and Worldreaver.
+// Kit: J Slash, K Rush (brandish = its finisher), L Dragon Fury, U Worldreaver (slam + quake), SP Leap.
+// Sheets: pc_hero, pc_hero_ghost (anims incl. rush, slam), portrait_pc_hero, icons_hero (j k l u sp),
+// fx_hero_slash, fx_hero_brandish, fx_hero_dragon, fx_hero_rush, fx_hero_slam, fx_hero_quake.
 window.RPG_CLASS_HERO = function (BK) {
   const { Sheet, png, Grid } = BK;
   const FW = 48, FH = 40, CX = 24, FY = 37;     // frame, anchor column, feet row
@@ -145,7 +147,7 @@ window.RPG_CLASS_HERO = function (BK) {
   // ------------------------------------------------------------------ the knight
   // pose: lean, cr (crouch), bob, fb/ff far/near ankle [x rel CX, y abs, toeDown], sa sword angle,
   // h hand rel front shoulder, two (two-handed), bh far hand rel far shoulder, st cape stream, lift, ph phase,
-  // pst plume stream, glow, smear [a0,a1], eye
+  // pst plume stream, glow, smear [a0,a1], eye, hd [dx,dy] extra head offset
   function knight(p) {
     const G = Grid(FW, FH);
     const ux = p.lean || 0, cr = p.cr || 0, uy = cr + (p.bob || 0), ph = p.ph || 0;
@@ -170,8 +172,9 @@ window.RPG_CLASS_HERO = function (BK) {
     // torso, far pauldron, head, plume
     { const L = Lay(); rows(L, TORSO, CX - 4 + ux, 21 + uy); comp(G, L); }
     { const L = Lay(); rows(L, PAUL_B, CX - 6 + ux, 22 + uy); comp(G, L); }
-    { const L = Lay(); rows(L, HELM, CX - 2 + ux, 15 + uy); plume(L, CX + ux, 14 + uy, p.pst || 0, ph);
-      if (p.eye) { L.set(CX + 2 + ux, 18 + uy, fl ? WHITE : C.crim1); L.set(CX + 3 + ux, 18 + uy, C.crim1); }
+    { const L = Lay(), hux = ux + (p.hd ? p.hd[0] : 0), huy = uy + (p.hd ? p.hd[1] : 0);   // hd: extra head offset (hunched charge)
+      rows(L, HELM, CX - 2 + hux, 15 + huy); plume(L, CX + hux, 14 + huy, p.pst || 0, ph);
+      if (p.eye) { L.set(CX + 2 + hux, 18 + huy, fl ? WHITE : C.crim1); L.set(CX + 3 + hux, 18 + huy, C.crim1); }
       comp(G, L); }
     // front arm + sword
     { const L = Lay();
@@ -290,6 +293,13 @@ window.RPG_CLASS_HERO = function (BK) {
     ['climb', 8, 1, [{ back: 0 }, { back: 1 }, { back: 2 }, { back: 3 }]],
     ['crouch', 10, 0, [B({ cr: 3, fb: [-5, 36], ff: [4, 36], sa: 0.75, h: [3, 3], bh: [-2, 4], st: 0.1, ph: 1 })]],
     ['hurt', 10, 0, [B({ lean: -2, cr: 1, fb: [-2, 36], ff: [5, 34], sa: -2.9, h: [-3, -2], bh: [-5, 0], lift: 0.3, ph: 2 })]],
+    // appended (keep earlier frame indices stable): K Rush charge, U Worldreaver leap + plant
+    ['rush', 12, 1, [
+      B({ two: 1, sa: 0.2, h: [4, 4], lean: 3, cr: 2, hd: [1, 1], fb: [-8, 35, 1], ff: [6, 36], glow: 1, eye: 1, st: 0.9, pst: 1, ph: 0 }),
+      B({ two: 1, sa: 0.24, h: [4, 5], lean: 3, cr: 1, hd: [1, 1], fb: [4, 35], ff: [-7, 34, 1], glow: 1, eye: 1, st: 0.95, pst: 1, ph: 2 })]],
+    ['slam', 12, 0, [
+      B({ two: 1, sa: -1.95, h: [-1, -9], lean: -1, cr: -1, fb: [-4, 32, 1], ff: [3, 31], glow: 1, eye: 1, st: 0.3, lift: 0.3, pst: 0.6, ph: 1 }),
+      B({ two: 1, sa: 1.42, h: [5, -2], lean: 2, cr: 3, hd: [1, 1], fb: [-6, 36], ff: [4, 36], glow: 1, eye: 1, st: 0.4, pst: 0.4, ph: 3 })]],
   ];
 
   const R_ = (pairs) => { const m = PAL.map((_, i) => i); for (const [a, b] of pairs) m[a] = b; return m; };
@@ -466,33 +476,278 @@ window.RPG_CLASS_HERO = function (BK) {
     }), 0, 0);
     sh.done(); }
 
-  // ------------------------------------------------------------------ rage aura (periodic flame field, 4-frame loop)
-  function pnoise(x, y, P) {
-    const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
-    const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
-    const h = (a, b) => hash(a, ((b % P) + P) % P);
-    const a = h(xi, yi), b = h(xi + 1, yi), c = h(xi, yi + 1), d = h(xi + 1, yi + 1);
-    return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+  // ------------------------------------------------------------------ FX grid helpers (index grids, coloured outlines)
+  function outlineC(G, c) {
+    const b = G.a.slice();
+    for (let y = 0; y < G.h; y++) for (let x = 0; x < G.w; x++) if (G.a[y * G.w + x] < 0) {
+      if (G.get(x - 1, y) >= 0 || G.get(x + 1, y) >= 0 || G.get(x, y - 1) >= 0 || G.get(x, y + 1) >= 0) b[y * G.w + x] = c;
+    }
+    G.a.set(b);
   }
-  { const sh = Sheet('fx_hero_rage', 32, 44, 4, { px: 16, py: 43, fps: 12, anims: { play: { fps: 12, loop: true, frames: [0, 1, 2, 3] } } });
-    const P = 8, SC = 0.22, cx = 15.5, by = 43, hw = 14.5, hh = 42;
-    for (let f = 0; f < 4; f++) sh.add(canvasOf(32, 44, () => {
-      const scroll = f * (P / SC) / 4;
-      for (let y = 0; y <= by; y++) {
-        const fy = (by - y) / hh;
-        for (let x = 0; x < 32; x++) {
-          const d = (x - cx) / hw;
-          const n = pnoise(x * 0.38, (y + scroll) * SC, P);
-          const v = Math.pow(Math.max(0, 1 - fy), 0.8) * (1 - Math.pow(Math.abs(d), 2.2)) * 1.3 + (n - 0.5) * 1.25 - 0.3;
-          if (v < 0.2) continue;
-          px(x, y, v > 1.12 ? C.crim0 : v > 0.82 ? C.crim1 : v > 0.56 ? C.crim2 : v > 0.36 ? C.crim3 : C.crim4);
+  function blit(G) { for (let y = 0; y < G.h; y++) for (let x = 0; x < G.w; x++) { const v = G.a[y * G.w + x]; if (v >= 0) px(x, y, v); } }
+  // a small tumbling rock chunk (s = 1..3) into grid G, optional hot crimson rim
+  function chunk(G, x, y, s, hot, spin) {
+    x = Math.round(x); y = Math.round(y);
+    const w = s + (spin & 1), h = Math.max(1, s - (spin & 1));
+    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+      let c = w * h === 1 ? C.rock0 : i === 0 && j === 0 ? C.burlap : (i === w - 1 && j === h - 1) ? C.rock1 : C.rock0;
+      if (hot && ((i === w - 1 && j === 0) || (w === 1 && h === 1))) c = hot > 1 ? C.crim0 : C.crim1;
+      G.set(x + i, y + j, c);
+    }
+  }
+
+  // ------------------------------------------------------------------ K: Rush bow-wave (sits in front of the charging knight)
+  { const FWR = 40, FHR = 32, yc = 17, gy = 31;
+    const sh = Sheet('fx_hero_rush', FWR, FHR, 4, { px: 8, py: 31, fps: 16, anims: { play: { fps: 16, loop: true, frames: [0, 1, 2, 3] } } });
+    for (let f = 0; f < 4; f++) sh.add(canvasOf(FWR, FHR, () => {
+      // horizontal speed streaks scrolling back (period 40px = 4 frames x 10px)
+      for (let q = 0; q < 10; q++) {
+        const y = 3 + Math.floor(hash(q, 41) * 25);
+        const len = 5 + Math.floor(hash(q, 42) * 9);
+        const x1 = ((Math.floor(hash(q, 43) * 40) - f * 10) % 40 + 40) % 40;
+        for (let k = 0; k < len; k++) {
+          const x = x1 - k;
+          if (x > 27 || x < (y < 8 ? 0 : 11)) continue;
+          px(x, y, k === 0 ? (q & 1 ? WHITE : C.crim0) : k < 3 ? C.crim1 : k < len * 0.7 ? C.crim2 : C.crim3);
         }
       }
-      for (let q = 0; q < 7; q++) {
-        const x = 3 + Math.floor(hash(q, 1) * 26), y0 = Math.floor(hash(q, 2) * 40), y = ((y0 - f * 5) % 40 + 40) % 40;
-        px(x, y, y < 14 ? C.crim1 : C.crim0);
+      // ripples travelling forward inside the cone (3 arcs, 8px period)
+      for (let i = 0; i < 2; i++) {
+        const off = (f * 2 + i * 4) % 8, xr = 30 - 8 + off, span = 6 + off * 0.6;
+        for (let y = Math.round(yc - span); y <= yc + span; y++) {
+          const dy = y - yc, x = xr - 0.1 * dy * dy;
+          px(x, y, off > 5 ? C.crim1 : off > 2 ? C.crim2 : C.crim3);
+          if (Math.abs(dy) < span * 0.5 && off > 3) px(x - 1, y, C.crim3);
+        }
       }
-      ellipse(16, 42, 13, 1.5, f & 1 ? C.crim2 : C.crim1, 2);
+      // the bow wave: a bright crescent bulging forward at chest height
+      const xf = 34 + (f & 1);
+      for (let y = yc - 13; y <= yc + 13; y++) {
+        const dy = y - yc, t = Math.abs(dy) / 13;
+        const xe = Math.round(xf - 0.075 * dy * dy + (hash(y, f + 3) > 0.8 ? 1 : 0) * (t > 0.3 ? 1 : 0));
+        const th = Math.round(4.2 * (1 - t * t)) + 1;
+        for (let k = th - 1; k >= 0; k--) {
+          const c = k === 0 ? (t < 0.75 ? WHITE : C.crim0) : k === 1 ? (t < 0.5 ? C.crim0 : C.crim1) : k < th - 1 ? C.crim1 : C.crim2;
+          px(xe - k, y, c);
+        }
+        if (th > 2 && ((y + f) & 3) === 0) px(xe - th, y, C.crim3);
+      }
+      // spray flecks ahead of the wave
+      for (let q = 0; q < 5; q++) {
+        const a = (hash(q, f + 20) - 0.5) * 2.2, r = 2 + hash(q, f + 21) * 3;
+        const x = xf + 1 + Math.cos(a) * r, y = yc + Math.sin(a) * 10 * (0.6 + hash(q, f + 22) * 0.4);
+        if (x < FWR) px(x, y, q & 1 ? C.crim0 : C.crim1);
+      }
+      // dust kicked up at the ground line, drifting back and billowing (each puff cycles over the 4 frames)
+      const puff = (bx, by, r) => {
+        for (let y = Math.floor(by - r); y <= by + r; y++) for (let x = Math.floor(bx - r); x <= bx + r; x++) {
+          if (y > gy) continue;
+          const d = Math.hypot(x - bx, (y - by) * 1.9) / r;
+          if (d > 1 || hash(x, y + f * 7) < (d > 0.7 ? 0.6 : 0.3)) continue;
+          px(x, y, (y - by) < -r * 0.3 && (x - bx) < r * 0.4 ? C.burlap : C.burlapD);
+        }
+      };
+      for (let q = 0; q < 3; q++) {
+        const ph = ((f + q * 1.33) % 4) / 4, sz = ph < 0.7 ? 1.5 + ph * 3.5 : (1 - ph) * 13;
+        puff(15 - q * 4 - ph * 10, gy - 1 - ph * 2, sz);
+      }
+      // sparks skidding off the front foot
+      for (let q = 0; q < 4; q++) px(12 + Math.floor(hash(q, f + 30) * 10), gy - Math.floor(hash(q, f + 31) * 4), q & 1 ? C.crim1 : C.crim0);
+    }), 0, 0);
+    sh.done(); }
+
+  // ------------------------------------------------------------------ U: Worldreaver impact (sword driven into the ground)
+  { const FWS = 96, FHS = 56, cx = 48, gy = 55, NF = 10;
+    const sh = Sheet('fx_hero_slam', FWS, FHS, 5, { px: 48, py: 55, fps: 24, anims: { play: { fps: 24, loop: false, frames: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] } } });
+    const rocks = [];
+    for (let q = 0; q < 16; q++) {
+      const side = q & 1 ? 1 : -1;
+      rocks.push({ x0: cx + side * (1 + hash(q, 65) * 6), vx: side * (1 + hash(q, 61) * 3.6), vy: -(2.6 + hash(q, 62) * 3.6),
+        s: 1 + Math.floor(hash(q, 63) * 2.6), t0: hash(q, 64) < 0.6 ? 1 : 2, hot: hash(q, 66) < 0.5 });
+    }
+    // jagged cracks along the ground line, both ways, with little upward forks
+    const cracks = [];
+    for (const side of [-1, 1]) for (let k = 0; k < 2; k++) {
+      const pts = []; let y = gy - (k ? 2 : 0), x = cx + side * (k ? 3 : 1);
+      const len = k ? 26 : 44;
+      for (let i = 0; i < len; i++) {
+        pts.push([x, y]);
+        x += side;
+        const h = hash(i + k * 50, side + 7);
+        if (h < 0.2 && y < gy) y++; else if (h > 0.8 && y > gy - 3) y--;
+      }
+      cracks.push(pts);
+    }
+    for (let f = 0; f < NF; f++) sh.add(canvasOf(FWS, FHS, () => {
+      const G = Grid(FWS, FHS);
+      // dome: expanding half ellipse of crimson energy
+      if (f >= 1 && f <= 7) {
+        const e = easeOut((f - 1) / 6), rx = 9 + 38 * e, ry = 6 + 22 * e, th = f < 4 ? 3.2 : f < 6 ? 2.2 : 1.4;
+        for (let y = Math.floor(gy - ry - 1); y <= gy; y++) for (let x = Math.floor(cx - rx - 1); x <= cx + rx + 1; x++) {
+          const d = Math.hypot((x - cx) / rx, (y - gy) / ry), dd = (1 - d) * Math.min(rx, ry);
+          if (dd < -0.5) continue;
+          if (dd > th) { if (f <= 2 && bay(x, y) < (f === 1 ? 0.2 : 0.07) && dd < th + 5) G.set(x, y, f === 1 ? C.crim2 : C.crim3); continue; }
+          if (f >= 5 && bay(x, y) < (f - 4) * 0.22) continue;
+          G.set(x, y, dd < 0.8 ? (f <= 3 ? WHITE : f <= 5 ? C.crim0 : C.crim1) : dd < 1.8 ? (f <= 4 ? C.crim1 : C.crim2) : f <= 4 ? C.crim2 : C.crim3);
+        }
+      }
+      // ground shock front skimming outward on both sides
+      if (f >= 1 && f <= 8) {
+        const e = easeOut((f - 1) / 7), xr = 10 + 36 * e, hgt = f < 5 ? 6 - (f - 1) * 0.5 : 4 - (f - 5);
+        for (const side of [-1, 1]) {
+          const x0 = cx + side * xr;
+          for (let y = Math.round(gy - hgt); y <= gy; y++) {
+            const t = (gy - y) / Math.max(1, hgt), lean = Math.round(t * t * 3) * side;
+            const x = Math.round(x0 - lean);
+            G.set(x, y, f < 6 ? (t < 0.6 ? WHITE : C.crim0) : C.crim1);
+            G.set(x - side, y, f < 6 ? C.crim1 : C.crim2);
+            if (t < 0.7) G.set(x - side * 2, y, C.crim2);
+            if (t < 0.4) G.set(x - side * 3, y, C.crim3);
+          }
+          for (let k = 3; k < 3 + xr * 0.35; k++) if (bay(Math.round(x0 - side * k), gy) < 0.6 - k * 0.03) G.set(x0 - side * k, gy, C.crim2);
+        }
+      }
+      // glowing cracks: grow f1..f4, cool f6..f9
+      if (f >= 1) {
+        const grow = Math.min(1, f / 4);
+        for (let ci = 0; ci < cracks.length; ci++) {
+          const pts = cracks[ci], n = Math.floor(pts.length * grow);
+          for (let i = 0; i < n; i++) {
+            const [x, y] = pts[i], u = i / pts.length;
+            let c;
+            if (f <= 5) c = u < 0.15 && f < 4 ? WHITE : u < 0.45 ? C.crim0 : u < 0.8 ? C.crim1 : C.crim2;
+            else c = f === 6 ? (u < 0.4 ? C.crim1 : C.crim2) : f === 7 ? (u < 0.5 ? C.crim2 : C.crim3) : C.crim3;
+            if (f >= 8 && bay(x, y) < (f - 7) * 0.3 + u * 0.3) continue;
+            G.set(x, y, c);
+            if (f <= 6 && (i % 7 === 3) && y > gy - 3) { G.set(x, y - 1, C.crim2); if (f < 5) G.set(x + (ci & 1 ? 1 : -1), y - 2, C.crim3); }
+          }
+        }
+      }
+      // central flash: white star + light pillar
+      if (f <= 3) {
+        const r = [4, 6, 4.5, 2.5][f];
+        for (let y = Math.floor(gy - r * 1.3); y <= gy; y++) for (let x = Math.floor(cx - r - 1); x <= cx + r + 1; x++) {
+          const d = Math.hypot(x - cx, (y - gy) / 1.3);
+          if (d > r) continue;
+          G.set(x, y, f >= 3 ? (d < r * 0.5 ? C.crim0 : C.crim1) : d < r * 0.6 ? WHITE : C.crim0);
+        }
+        const pl = [30, 44, 34, 18][f], pw = [1, 2, 1, 0][f];
+        for (let y = gy - pl; y < gy - r; y++) {
+          const t = (gy - y) / pl;
+          for (let k = -pw - 1; k <= pw + 1; k++) {
+            if (Math.abs(k) > pw * (1 - t) + 0.5 + (Math.abs(k) > pw ? 0 : 1)) continue;
+            const c = Math.abs(k) <= pw * (1 - t) ? (f < 2 ? WHITE : C.crim0) : f < 2 ? C.crim0 : C.crim1;
+            if (f === 3 && bay(cx + k, y) < t) continue;
+            G.set(cx + k, y, c);
+          }
+        }
+        if (f <= 2) { const hs = [14, 22, 16][f]; for (let x = -hs; x <= hs; x++) { const t = Math.abs(x) / hs; G.set(cx + x, gy - 1, t < 0.5 ? WHITE : C.crim0); if (t < 0.7) G.set(cx + x, gy - 2, C.crim1); } }
+      }
+      // embers
+      if (f >= 2) for (let q = 0; q < 14; q++) {
+        const tt = f - 2 + hash(q, 81) * 2, a = -Math.PI / 2 + (hash(q, 82) - 0.5) * 2.6, sp = 2 + hash(q, 83) * 3;
+        const x = cx + Math.cos(a) * sp * tt * 1.4, y = gy - 4 + Math.sin(a) * sp * tt + 0.25 * tt * tt;
+        if (y > gy || tt > 7.5) continue;
+        G.set(x, y, tt < 3 ? C.crim0 : tt < 5 ? C.crim1 : C.crim2);
+      }
+      outlineC(G, C.crim4);
+      // dust billows where the shock front runs out
+      if (f >= 4) for (const side of [-1, 1]) for (let q = 0; q < 2; q++) {
+        const e = (f - 4) / 5, bx = cx + side * (24 + q * 12 + e * 8), by = gy - 2 - e * 4 - q;
+        const r = (2.5 + e * 3 + q * 0.6) * (e > 0.55 ? 1 - (e - 0.55) * 1.5 : 1);
+        for (let y = Math.floor(by - r); y <= gy; y++) for (let x = Math.floor(bx - r); x <= bx + r; x++) {
+          const d = Math.hypot(x - bx, (y - by) * 1.3) / r;
+          if (d > 1 || G.get(x, y) >= 0 || (d > 0.75 && hash(x, y + f * 5) < 0.5)) continue;
+          G.set(x, y, (y - by) < -r * 0.3 && (x - bx) * side < r * 0.4 ? C.burlap : C.burlapD);
+        }
+      }
+      blit(G);
+      // shattered ground chunks (ink outlined, drawn on top)
+      const RG = Grid(FWS, FHS);
+      for (let q = 0; q < rocks.length; q++) {
+        const r = rocks[q], tt = f - r.t0 + 1;
+        if (tt < 0) continue;
+        const x = r.x0 + r.vx * tt * 1.5, y = gy - 2 + r.vy * tt * 1.6 + 0.62 * tt * tt;
+        if (y > gy - 1 && tt > 1) { if (f < 9 && tt < 6) chunk(RG, x, gy - 1, 1, 0, 0); continue; }
+        chunk(RG, x, y, tt < 1 ? Math.min(2, r.s) : r.s, r.hot && tt < 4 ? (tt < 2 ? 2 : 1) : 0, q + f);
+      }
+      RG.outline();
+      blit(RG);
+    }), 0, 0);
+    sh.done(); }
+
+  // ------------------------------------------------------------------ U: Worldreaver quake segment (spawned repeatedly along the ground)
+  { const FWQ = 24, FHQ = 56, cx = 12, gy = 55, NF = 10;
+    const sh = Sheet('fx_hero_quake', FWQ, FHQ, 5, { px: 12, py: 55, fps: 24, anims: { play: { fps: 24, loop: false, frames: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] } } });
+    const HT = [0, 14, 31, 44, 47, 45, 40, 24, 0, 0];
+    // one jagged spike: tip (tx, gy - h), base half-width bw; jag seeds per spike
+    function spike(G, bx, h, bw, lean, seed, f, crumble) {
+      if (h < 2) return;
+      for (let y = gy - Math.round(h); y <= gy; y++) {
+        const t = (gy - y) / h;                     // 0 base .. 1 tip
+        const mid = bx + lean * t;
+        const j1 = (hash(Math.floor(y / 3), seed) - 0.5) * 1.8 * (1 - t), j2 = (hash(Math.floor((y + 1) / 3), seed + 5) - 0.5) * 1.8 * (1 - t);
+        const hw = bw * Math.pow(1 - t, 0.85);
+        const xl = Math.round(mid - hw + j1), xr = Math.round(mid + hw + j2);
+        for (let x = xl; x <= xr; x++) {
+          if (crumble > 0 && t > 1 - crumble && hash(x >> 1, (y >> 1) + seed * 31) < 0.3 + (t - (1 - crumble)) * 1.5) continue;
+          const rel = (x - mid) / Math.max(0.6, hw);
+          let c;
+          if (Math.abs(x - mid) < 0.75 && t < 0.88) c = f >= 3 && f <= 5 ? WHITE : C.crim0;
+          else if (Math.abs(x - mid) < 1.6 && t < 0.7) c = C.crim0;
+          else c = rel < -0.2 ? C.crim1 : rel < 0.45 ? C.crim2 : C.crim3;
+          if (t > 0.9) c = f >= 3 && f <= 5 ? C.crim0 : C.crim1;
+          G.set(x, y, c);
+        }
+        // cracked strata lines across the spike
+        if (((y + seed) % 5) === 0 && t < 0.8 && t > 0.05) G.set(Math.round(mid + hw * 0.5), y, C.crim3);
+      }
+    }
+    for (let f = 0; f < NF; f++) sh.add(canvasOf(FWQ, FHQ, () => {
+      const G = Grid(FWQ, FHQ), h = HT[f];
+      const crumble = f === 6 ? 0.35 : f === 7 ? 0.7 : 0;
+      // side shards first, then the main spike
+      spike(G, cx - 4, h * 0.5, 2.6, -3, 11, f, crumble);
+      spike(G, cx + 4, h * 0.38, 2.2, 2.5, 17, f, crumble);
+      spike(G, cx, h, 4.6, 1, 3, f, crumble);
+      // glowing fissure on the ground
+      const hotC = f <= 5 ? 0 : f - 5;
+      for (let x = 1; x < FWQ - 1; x++) {
+        const d = Math.abs(x - cx) / 11;
+        if (d > (f === 0 ? 0.55 : 1) || (f >= 8 && bay(x, gy) < (f - 7) * 0.35 + d * 0.3)) continue;
+        const y = gy - (hash(x >> 1, 91) < 0.3 ? 1 : 0);
+        const c = [[WHITE, C.crim0, C.crim1], [C.crim0, C.crim1, C.crim2], [C.crim1, C.crim2, C.crim2], [C.crim1, C.crim2, C.crim3], [C.crim2, C.crim3, C.crim3]][hotC][d < 0.3 ? 0 : d < 0.65 ? 1 : 2];
+        if (G.get(x, y) < 0) G.set(x, y, c);
+        if (y === gy && G.get(x, gy - 1) < 0 && f <= 7 && d < 0.4) G.set(x, gy - 1, hotC < 2 ? C.crim2 : C.crim3);
+      }
+      // falling fragments while it crumbles
+      if (f >= 6 && f <= 8) for (let q = 0; q < 7; q++) {
+        const tt = f - 5, side = q & 1 ? 1 : -1;
+        const x = cx + side * (1 + hash(q, 93) * 3 + tt * (0.8 + hash(q, 94) * 1.4)), y = gy - 20 - hash(q, 95) * 22 + tt * tt * 2.2 + tt * 3;
+        if (y >= gy - 1) continue;
+        G.set(x, y, q % 3 === 0 ? C.crim1 : C.crim2); if (q & 2) G.set(x + 1, y, C.crim3);
+      }
+      outlineC(G, C.crim4);
+      // energy motes and embers rising
+      if (f >= 1) for (let q = 0; q < 8; q++) {
+        const tt = f - 1 + hash(q, 97) * 3, x = cx + (hash(q, 98) - 0.5) * 14 + Math.sin(tt + q) * 1.2, y = gy - 6 - tt * (3 + hash(q, 99) * 3) - (f < 5 ? h * 0.5 : 0);
+        if (y < 1 || tt > 9) continue;
+        const c = tt < 3 ? C.crim0 : tt < 6 ? C.crim1 : C.crim2;
+        if (G.get(x, y) < 0) G.set(x, y, c);
+      }
+      if (f === 0) for (let q = 0; q < 5; q++) G.set(cx + (hash(q, 101) - 0.5) * 10, gy - 1 - hash(q, 102) * 5, q & 1 ? C.crim0 : C.crim1);
+      blit(G);
+      // rock rubble torn up around the base
+      const RG = Grid(FWQ, FHQ);
+      if (f >= 1 && f <= 8) for (let q = 0; q < 4; q++) {
+        const side = q & 1 ? 1 : -1, tt = f - 1, fly = q < 2;
+        const up = fly ? Math.max(0, 7 * tt - 1.5 * tt * tt) : 0;
+        const x = cx + side * (fly ? 5 + tt * 0.9 : 8 + (q & 2 ? 1 : 0)), y = fly ? gy - 3 - up : gy - 1;
+        if (fly && tt > 1 && y > gy - 3) continue;
+        chunk(RG, x, y, fly ? 2 : 1, f < 5 ? (fly ? 2 : 1) : 0, fly ? tt : 0);
+      }
+      RG.outline();
+      blit(RG);
     }), 0, 0);
     sh.done(); }
 
@@ -511,11 +766,11 @@ window.RPG_CLASS_HERO = function (BK) {
       for (let a = -1.9; a < 0.9; a += 0.05) { const t = (a + 1.9) / 2.8; for (let r = 5.2; r <= 6.2 + t * 1.2; r += 0.5) px(7 + Math.cos(a) * r, 7 + Math.sin(a) * r, r > 6 ? (t > 0.4 ? WHITE : C.crim0) : C.crim2); }
       miniSword(3, 11, -0.85, 9, false);
     }), 0, 0);
-    // k: brandish (big double crescent)
+    // k: rush (a charging lance-thrust: blade forward, bow-wave chevron ahead, speed streaks behind)
     sh.add(icon(() => {
-      const cres = (cx, cy, R0, a0, a1, th, hot) => { for (let a = a0; a < a1; a += 0.03) { const t = (a - a0) / (a1 - a0), w = th * Math.sin(Math.PI * t); for (let r = R0 - w; r <= R0 + 0.01; r += 0.5) px(cx + Math.cos(a) * r, cy + Math.sin(a) * r, r > R0 - 0.9 ? (hot ? WHITE : C.crim0) : r > R0 - w * 0.5 ? C.crim1 : C.crim2); } };
-      cres(4, 7, 8.5, -1.3, 1.3, 3.2, true);
-      cres(4, 7, 4.8, -1.2, 1.2, 2.2, false);
+      for (const [y, x0, x1] of [[2, 0, 6], [4, 1, 7], [10, 1, 7], [12, 0, 6]]) for (let x = x0; x <= x1; x++) px(x, y, x === x1 ? C.crim1 : x > x1 - 3 ? C.crim2 : C.crim3);
+      for (let y = 2; y <= 12; y++) { const d = Math.abs(y - 7), x = 12 - Math.round(d * d * 0.16); px(x, y, d < 4 ? WHITE : C.crim0); px(x - 1, y, d < 3 ? C.crim0 : C.crim1); if (d < 4) px(x - 2, y, C.crim2); }
+      miniSword(3, 7, 0, 8, true);
     }), 0, 0);
     // l: dragon head
     sh.add(icon(() => {
@@ -535,14 +790,14 @@ window.RPG_CLASS_HERO = function (BK) {
       drawRows(D, 0, 2);
       for (let r = 4; r < 11; r++) px(0, r + 1, C.crim2);
     }), 0, 0);
-    // u: rage (crimson flame around an upright glowing blade)
+    // u: worldreaver (sword planted point-down in cracked ground, crimson spikes erupting)
     sh.add(icon(() => {
-      for (let y = 1; y < 14; y++) for (let x = 0; x < 14; x++) {
-        const d = (x - 6.5) / 6, f = (13 - y) / 12;
-        const v = (1 - f) * (1 - d * d) * 1.6 + (hash(x, y * 3) - 0.5) * 0.7 - 0.25;
-        if (v > 0.25) px(x, y, v > 1.1 ? C.crim0 : v > 0.8 ? C.crim1 : v > 0.5 ? C.crim2 : C.crim3);
-      }
-      miniSword(7, 11, -Math.PI / 2, 9, true);
+      const sp2 = (bx, h, w) => { for (let y = 0; y < h; y++) { const hw = Math.round(w * (1 - y / h)); for (let x = -hw; x <= hw; x++) px(bx + x, 11 - y, x === 0 && y < h - 1 ? C.crim0 : x < 0 ? C.crim1 : C.crim2); } };
+      sp2(2, 7, 1.6); sp2(12, 6, 1.4); sp2(4, 4, 1);
+      R(0, 12, 14, 2, C.rock2); for (let x = 0; x < 14; x++) if ((x * 5) % 7 < 3) px(x, 12, C.rock1);
+      for (const [x, y] of [[7, 12], [6, 13], [8, 12], [9, 13], [5, 12], [10, 12], [4, 13], [11, 13]]) px(x, y, Math.abs(x - 7) < 2 ? WHITE : Math.abs(x - 7) < 4 ? C.crim0 : C.crim1);
+      miniSword(7, 3, Math.PI / 2, 9, true);
+      px(7, 11, WHITE); px(6, 11, C.crim1); px(8, 11, C.crim1);
     }), 0, 0);
     // sp: leap (a boot kicking off with a rising streak)
     sh.add(icon(() => {

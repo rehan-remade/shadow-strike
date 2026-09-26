@@ -48,6 +48,7 @@ public class Dummy : ITarget
     public int MidH { get { return 18; } }
     public int Reach { get { return 15; } }
     public void Mark() { skin = "shadow"; skinT = 0.5f; shiver = 0.3f; }
+    public void Drag(float toX) { }
     public void SetVisible(bool v) { visible = v; foreach (var r in rows) r.enabled = v; if (!v) foreach (var s in stuck) { s.on = false; s.sr.enabled = false; } }
 
     public void Hit(float x, float y, HitOpt o, int dir)

@@ -33,7 +33,8 @@ public class Fx
     // Play frames [first, first+count) of a sheet once at (x, y). fx = draw on the bright FX layer.
     public void Play(string sheet, float x, float y, bool fx = true, int first = 0, int count = -1, bool flip = false, int order = 55, float loopFor = 0)
     {
-        var s = Atlas.Sheets[sheet];
+        Sheet s;
+        if (!Atlas.Sheets.TryGetValue(sheet, out s)) return;
         OneShot o = null;
         foreach (var q in shots) if (!q.on && q.sr.gameObject.layer == (fx ? Px.LAYER_FX : 0)) { o = q; break; }
         if (o == null) { o = new OneShot { sr = Px.MakeSR(sheet, fx ? Game.I.fx : Game.I.world, order, fx ? Px.LAYER_FX : 0) }; shots.Add(o); }

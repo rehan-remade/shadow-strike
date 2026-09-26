@@ -167,16 +167,17 @@ public class Hud
         Box(expBg, 0, 0, Px.W, 2, play);
         float ef = Mathf.Clamp01(D.exp / (float)Stats.ExpNeed(D.level));
         Box(expFill, 0, 0, Px.W * ef, 2, play);
+        // "LV" over the EXP %, the big level number beside them (stacking them made the outlines collide)
         lvT.Set("LV", "white", 4, 17, play);
-        lvN.Set(D.level.ToString(), "goldBig", 16, 18, play);
         expT.Set((ef * 100).ToString("0.0") + "%", "white", 4, 8, play);
+        lvN.Set(D.level.ToString(), "goldBig", 29, 15, play);
         float hf = Mathf.Clamp01(D.hp / (float)Stats.MaxHp), mf = Mathf.Clamp01(D.mp / (float)Stats.MaxMp);
-        hpL.Set("HP", "white", 42, 17, play); mpL.Set("MP", "white", 42, 9, play);
-        Box(hpFrame, 52, 11, 82, 7, play); Box(hpFill, 53, 12, 80 * hf, 5, play); Box(hpShine, 53, 16, 80 * hf, 1, play);
-        Box(mpFrame, 52, 3, 82, 7, play); Box(mpFill, 53, 4, 80 * mf, 5, play); Box(mpShine, 53, 8, 80 * mf, 1, play);
+        hpL.Set("HP", "white", 47, 17, play); mpL.Set("MP", "white", 47, 9, play);
+        Box(hpFrame, 57, 11, 77, 7, play); Box(hpFill, 58, 12, 75 * hf, 5, play); Box(hpShine, 58, 16, 75 * hf, 1, play);
+        Box(mpFrame, 57, 3, 77, 7, play); Box(mpFill, 58, 4, 75 * mf, 5, play); Box(mpShine, 58, 8, 75 * mf, 1, play);
         hpFill.color = Px.P(P.hurtFlash > 0 ? "white" : hf < 0.25f && ((G.tick >> 3) & 1) == 1 ? "crim1" : "crim2");
         string hs = D.hp + "/" + Stats.MaxHp, ms = D.mp + "/" + Stats.MaxMp;
-        hpT.Set(hs, "white", 93 - PixelText.Width(hs) / 2, 17, play); mpT.Set(ms, "white", 93 - PixelText.Width(ms) / 2, 9, play);
+        hpT.Set(hs, "white", 95 - PixelText.Width(hs) / 2, 17, play); mpT.Set(ms, "white", 95 - PixelText.Width(ms) / 2, 9, play);
         string[] potKeys = { "potion_red", "potion_blue" }; int[] potCount = { D.red, D.blue };
         for (int i = 0; i < 2; i++)
         {
@@ -580,7 +581,7 @@ public class Screens
 
     static readonly string[] Help =
     {
-        "CONTROLS", "", "ARROWS       MOVE / CLIMB (UP, DOWN)", "SPACE        JUMP  (AGAIN IN AIR: FLASH JUMP)", "DOWN+SPACE   DROP THROUGH A PLATFORM",
+        "CONTROLS", "", "ARROWS       MOVE / CLIMB (UP, DOWN)", "SPACE        JUMP  (AGAIN IN AIR: MOBILITY, ARROWS AIM TELEPORT)", "DOWN+SPACE   DROP THROUGH A PLATFORM",
         "UP           TALK TO NPC / ENTER PORTAL", "J  K  L  U   TRIPLE THROW, AVENGER, ASSASSINATE, SHADOW PARTNER", "1  2         RED / BLUE POTION", "",
         "ESC  RESUME        Q  SAVE AND QUIT TO TITLE", "", "PROGRESS IS SAVED AUTOMATICALLY",
     };
@@ -588,7 +589,9 @@ public class Screens
     {
         var G = Game.I;
         pause.Set(20, 36, 280, 112);
-        for (int k = 0; k < help.Length; k++) help[k].Set(Help[k], k == 0 ? "gold" : "white", 30, 140 - k * 8);
+        var sk = Classes.Cur.skill;
+        for (int k = 0; k < help.Length; k++)
+            help[k].Set(k == 6 ? "J  K  L  U   " + sk[0] + ", " + sk[1] + ", " + sk[2] + ", " + sk[3] : Help[k], k == 0 ? "gold" : "white", 30, 140 - k * 8);
         if (i.cancel) { Paused = false; HidePause(); }
         if (qPressed) { Paused = false; HidePause(); Stats.Save(); G.ToTitle(); }
     }

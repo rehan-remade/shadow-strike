@@ -53,7 +53,10 @@ values.
 - `fx_hero_slash`: 48x40, pivot at the swing centre (24,20). Crescent sword arc, crimson with a white edge, 6 frames, 24 fps, no loop.
 - `fx_hero_brandish`: 72x56, pivot (36,28). A much bigger double crescent (upper and lower sweep), 8 frames, 24 fps, no loop.
 - `fx_hero_dragon`: 72x36, pivot at the head's centre-front (60,18). The spectral crimson dragon from `06-dragon.js`, flying right with a jaw that opens and closes and a waving body behind. 4 frames, 12 fps, loop.
-- `fx_hero_rage`: 32x44, pivot at bottom centre (16,43). Crimson aura flames rising around a character-sized area, drawn behind the player. 4 frames, 12 fps, loop.
+- `fx_hero_rush`: 40x32, pivot (8,31). Bow-wave + speed streaks riding in front of the charging knight (Rush). 4 frames, 16 fps, loop.
+- `fx_hero_slam`: 96x56, pivot at bottom centre (48,55). Worldreaver impact: flash, crimson dome, cracks, flying rocks. 10 frames, 24 fps, no loop.
+- `fx_hero_quake`: 24x56, pivot at bottom centre (12,55). One erupting fissure spike; the game spawns a row of them outward. 10 frames, 24 fps, no loop.
+- `pc_hero` extra anims: `rush` (2 frames, loop) and `slam` (overhead raise, then sword planted).
 
 **archmage**
 - `fx_mage_bolt`: 14x8, pivot (7,4). An ice shard projectile flying right with a sparkle trail. 2 frames, 12 fps, loop.

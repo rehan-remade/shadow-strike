@@ -53,6 +53,7 @@ public class Boss : ITarget
     public float CentreX(float yy) { return x; }
     public void StickStar(float sx, float sy, bool clone) { Game.I.parts.Burst(sx, sy, 3, HITP, 50, 0.25f, 60, true); }
     public void Mark() { hurtT = 0.3f; }
+    public void Drag(float toX) { }
 
     public void Spawn()
     {

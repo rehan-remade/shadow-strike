@@ -28,8 +28,8 @@ public static class Classes
     public static readonly List<ClassDef> All = new List<ClassDef>
     {
         new ClassDef { id = "hero", name = "HERO", role = "WARRIOR", sheet = "pc_hero", ghost = "pc_hero_ghost", icons = "icons_hero",
-            desc = new[] { "HEAVY ARMOUR, HUGE SWORD.", "CLOSE-RANGE CLEAVES AND", "A SPECTRAL DRAGON." },
-            skill = new[] { "SLASH", "BRANDISH", "DRAGON FURY", "RAGE", "LEAP" }, mp = new[] { 0, 12, 20, 15, 2 }, cd = new[] { 0.42f, 3f, 6f, 25f },
+            desc = new[] { "HEAVY ARMOUR, HUGE SWORD.", "CHARGES THROUGH CROWDS AND", "SPLITS THE EARTH IN TWO." },
+            skill = new[] { "SLASH", "RUSH", "DRAGON FURY", "WORLDREAVER", "LEAP" }, mp = new[] { 0, 12, 20, 22, 2 }, cd = new[] { 0.42f, 2.5f, 6f, 7f },
             mob = Mobility.Leap, hpBase = 60, hpLv = 28, mpBase = 16, mpLv = 8 },
         new ClassDef { id = "archmage", name = "ARCH MAGE", role = "MAGICIAN", sheet = "pc_archmage", ghost = "pc_archmage_ghost", icons = "icons_archmage",
             desc = new[] { "ICE AND FIRE FROM AFAR.", "BLIZZARDS, METEORS AND", "A TELEPORT." },

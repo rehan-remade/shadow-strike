@@ -41,7 +41,7 @@ public partial class Player
     readonly List<CloneEvt> cloneEvts = new List<CloneEvt>();
     readonly List<int> pendingStars = new List<int>();
 
-    public bool CanBeHit { get { return !dead && invuln <= 0 && act != Act.Blink && !frozen; } }
+    public bool CanBeHit { get { return !dead && invuln <= 0 && act != Act.Blink && !(act == Act.CAct && cLock) && !frozen; } }
 
     public Player()
     {
@@ -69,7 +69,7 @@ public partial class Player
 
     Vector2 Hand(Sheet s, int frame, float px, float py, int f) { var h = s.hands[frame]; return new Vector2(px + (f > 0 ? h.x : -h.x - 1), py + h.y); }
     Vector2 CloneOffset(int f) { return new Vector2(-f * 7, 0); }   // same ground, just behind like a shadow
-    float Dmg(float mult) { return Stats.Atk * mult * (rageT > 0 ? 1.3f : 1f); }
+    float Dmg(float mult) { return Stats.Atk * mult; }
 
     bool Spend(int skill)
     {
@@ -108,20 +108,24 @@ public partial class Player
 
         if (climb != null) { ClimbTick(inp, dir); Finish(); return; }
 
-        if (act == Act.None)
+        // skills no longer root you: walk, jump and steer while casting. Only moves that drive the body
+        // themselves (Assassinate's blink + slash, Hero's Rush / Worldreaver) take over movement.
+        bool locked = act == Act.Blink || act == Act.Slash || (act == Act.CAct && cLock);
+        bool free = act == Act.None;
+        if (!locked)
         {
-            if (dir != 0) face = dir;
+            if (free && dir != 0) face = dir;                 // mid-skill the facing (aim) stays put
             if (grounded) vx = dir * RUN;
             else vx = Mathf.MoveTowards(vx, dir * RUN, (Mathf.Abs(vx) > RUN ? 140 : AIR_ACC) * Px.DT);
 
             // interactions: Up = portal / NPC / grab rope, Down = climb down / drop through
-            if (inp.upPress && grounded && G.TryInteract()) { Finish(); return; }
-            if (inp.up)
+            if (free && inp.upPress && grounded && G.TryInteract()) { Finish(); return; }
+            if (free && inp.up)
             {
                 var c = M.ClimbAt(x, y, false);
                 if (c != null && (!grounded || y < c.y1 - 2)) { StartClimb(c); Finish(); return; }
             }
-            if (inp.down && grounded && !inp.jump)
+            if (free && inp.down && grounded && !inp.jump)
             {
                 var c = M.ClimbAt(x, y, true);
                 if (c != null) { StartClimb(c); y -= 3; Finish(); return; }
@@ -131,15 +135,18 @@ public partial class Player
                 var fh = M.At(x, y);
                 if (grounded && inp.down && fh != null && !fh.solid) { dropIgnore = fh.id; dropT = 0.3f; grounded = false; vy = 20; }
                 else if (grounded) { vy = JUMP_V; grounded = false; Sfx.Play("jump", 0.6f); }
-                else if (!flashUsed) { if (IsNL) FlashJump(); else DoMobility(); }
+                else if (!flashUsed) { if (IsNL) FlashJump(); else DoMobility(inp); }
             }
-            if (!IsNL) ClassInput(inp);
-            else if (inp.partner && cdSp <= 0) { if (Spend(3)) StartSeal(); }
-            else if (inp.assassin && cdAs <= 0) { if (Spend(2)) StartBlink(); }
-            else if (inp.avenger && cdAv <= 0) { if (Spend(1)) StartCharge(); }
-            else if (inp.attack && cdThrow <= 0) StartThrow();
+            if (free)
+            {
+                if (!IsNL) ClassInput(inp);
+                else if (inp.partner && cdSp <= 0) { if (Spend(3)) StartSeal(); }
+                else if (inp.assassin && cdAs <= 0) { if (Spend(2)) StartBlink(); }
+                else if (inp.avenger && cdAv <= 0) { if (Spend(1)) StartCharge(); }
+                else if (inp.attack && cdThrow <= 0) StartThrow();
+            }
         }
-        else if (grounded) vx = 0;
+        else if (act != Act.CAct && grounded) vx = 0;
 
         if (act != Act.None) { actT += Px.DT; RunAct(); }
 
@@ -291,7 +298,6 @@ public partial class Player
                 if (actT >= 0.3f) act = Act.None;
                 break;
             case Act.Charge:
-                G.gradeTarget = 1;
                 if (G.tick % 2 == 0)
                 {
                     var hp = Hand(sh, anim.Frame, x, y, face); float a = Px.Range(0, Mathf.PI * 2);
@@ -334,7 +340,6 @@ public partial class Player
                 }
                 break;
             case Act.Slash:
-                G.gradeTarget = 1;
                 var T = slashT;
                 if (T == null || !T.Active) { if (actT >= 0.3f) act = Act.None; break; }
                 float cy = T.BaseY + T.MidH, tx = T.CentreX(cy);
@@ -363,7 +368,6 @@ public partial class Player
                 if (actT >= 0.55f) act = Act.None;
                 break;
         }
-        if (act != Act.Charge && act != Act.Slash && G.proj.BigAlive == 0) G.gradeTarget = 0;
     }
 
     // ------------------------------------------------------------------ getting hit

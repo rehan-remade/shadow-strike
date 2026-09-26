@@ -11,6 +11,7 @@ public static class Autoplay
     public static int StartLevel = 1;
     public static bool ClimbTest;
     public static string StartClass;
+    public static string SkillTest;   // -skilltest j|k|l|u (walk while casting) or tp (directional teleport)
     static int lastConfirm;
 
     public static Inp At(int frame)
@@ -20,6 +21,26 @@ public static class Autoplay
         if (G.dialog.Open || G.shop.Open) { if (frame - lastConfirm > 40) { i.confirm = true; lastConfirm = frame; } return i; }
         if (G.state != Game.State.Play || P.dead || frame < 60) return i;
         var D = Stats.D;
+        if (SkillTest != null)
+        {
+            int f = frame - 60;
+            if (SkillTest == "tp")
+            {
+                int ph = f % 70;
+                int step = (f / 70) % 4;       // up, right, down, left
+                if (ph == 10) i.jump = true;
+                if (ph == 22) { i.jump = true; i.up = step == 0; i.right = step == 1; i.down = step == 2; i.left = step == 3; }
+                return i;
+            }
+            bool right = (f / 180) % 2 == 0;
+            if (right) i.right = true; else i.left = true;
+            if (f % 60 == 20)
+            {
+                if (SkillTest == "j") i.attack = true; else if (SkillTest == "k") i.avenger = true;
+                else if (SkillTest == "l") i.assassin = true; else i.partner = true;
+            }
+            return i;
+        }
         if (ClimbTest)   // walk to the first rope and climb it (visual check)
         {
             float rx = G.map.def.climbs[0].x - P.x;

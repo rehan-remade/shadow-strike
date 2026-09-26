@@ -74,6 +74,7 @@ public class Mob : ITarget
     public bool Grind { get { return false; } }
     public void StickStar(float sx, float sy, bool clone) { }
     public void Mark() { flashT = 0.15f; }
+    public void Drag(float toX) { if (Active) x = Mathf.Clamp(toX, fh.x0 + 6, fh.x1 - 6); }
 
     public void Hit(float hx, float hy, HitOpt o, int dir)
     {
