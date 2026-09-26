@@ -1,4 +1,4 @@
-// Shadow Strike RPG art: tiles, parallax sets, props, portal, NPCs, monsters, items, effects and logo.
+// Hollow Crown RPG art: tiles, parallax sets, props, portal, NPCs, monsters, items, effects and logo.
 // Everything is procedural, palette-indexed and deterministic (engine rng/hash/bay only).
 window.RPG_ART = function (BK) {
   'use strict';
@@ -951,8 +951,15 @@ window.RPG_ART = function (BK) {
     add('potion_blue', potion(C.ice1, C.ice3, C.ice4));
     { const G = GX(10, 10); G.e(4.5, 7, 4, 4.5, (dx, dy, x, y) => (y > 7 ? undefined : dx + dy < -0.7 ? C.cap1 : dx > 0.5 ? C.cap3 : C.cap2)); G.r(1, 8, 8, 1, C.cap4); G.p(3, 5, C.robeW0); G.p(2, 5, C.robeW0); G.p(3, 4, C.robeW0); G.p(6, 4, C.robeW0); G.p(7, 6, C.robeW1); add('cap', G); }
     { const G = GX(10, 10); G.ln(1, 8, 4, 5, C.wood); G.ln(4, 5, 5, 2, C.wood); G.ln(2, 8, 5, 5, C.dirt); G.ln(5, 5, 8, 4, C.woodL); G.p(8, 3, C.woodL); G.ln(4, 6, 5, 8, C.dirt); G.p(6, 1, C.wood); G.p(4, 3, C.woodL); add('root', G); }
-    { const G = GX(10, 10); starPoly(G, 4.5, 4.5, 4.7, 2.3, -Math.PI / 2 + 0.12, 0.12, C.armor0, C.armor2, 0, 0, 9, 9); G.p(4, 4, C.armor1); G.p(4, 5, 0); G.p(5, 4, 0); G.p(5, 5, C.armor1); add('star_steely', G); }
-    { const G = GX(10, 10); starPoly(G, 4.5, 4.5, 4.9, 2.3, -Math.PI / 2 + 0.28, 0.25, C.ice1, C.ice3, 0, 0, 9, 9); G.e(4.5, 4.5, 1.6, 1.6, C.gold); G.p(4, 4, 0); G.p(5, 5, C.goldD); add('star_ilbi', G); }
+    // attack runes (any class): a carved stone with a glowing glyph. Keys kept from the old star items.
+    const rune = (c0, c1, c2, glow) => {
+      const G = GX(10, 10);
+      G.e(4.5, 5, 3.9, 4.4, (dx, dy, x, y, d) => (d > 0.8 ? c2 : dx + dy < -0.2 ? c0 : c1));
+      for (const [x, y] of [[4, 2], [4, 3], [4, 4], [4, 5], [4, 6], [4, 7], [3, 3], [5, 4], [3, 5], [5, 6]]) G.p(x, y, glow);
+      return G;
+    };
+    add('star_steely', rune(C.armor0, C.armor1, C.armor2, C.ice1));
+    add('star_ilbi', rune(C.vio1, C.vio2, C.vio3, C.gold));
     { const G = GX(10, 10); G.r(1, 5, 8, 3, (i, j) => (j === 2 ? C.goldD : i < 3 ? C.holy1 : C.gold)); for (const [x, h] of [[1, 3], [4, 4], [7, 3]]) G.r(x + (x === 4 ? 0 : 0), 5 - h, x === 4 ? 2 : 2, h, (i) => (i ? C.gold : C.holy1)); G.p(4, 6, C.crim1); G.p(5, 6, C.crim2); G.p(2, 1, C.holy0); G.p(8, 1, C.holy0); G.p(4, 0, C.holy0); add('crown', G); }
     sheetOf('items', 10, 10, 8, L, { px: 5, py: 9, names });
   }
@@ -1039,6 +1046,8 @@ window.RPG_ART = function (BK) {
       T: ['#####', '..#..', '..#..', '..#..', '..#..', '..#..', '..#..'], R: ['###.', '#..#', '#..#', '###.', '#.#.', '#..#', '#..#'],
       I: ['###', '.#.', '.#.', '.#.', '.#.', '.#.', '###'], K: ['#..#', '#.#.', '##..', '##..', '#.#.', '#..#', '#..#'],
       E: ['####', '#...', '#...', '###.', '#...', '#...', '####'],
+      L: ['#...', '#...', '#...', '#...', '#...', '#...', '####'], C: ['.###', '#...', '#...', '#...', '#...', '#...', '.###'],
+      N: ['#..#', '##.#', '##.#', '#.##', '#.##', '#..#', '#..#'],
     };
     const LW = 224, LH = 48, S3 = 3, G = GX(LW, LH), TY = 12;
     const word = (str, x0) => {
@@ -1059,20 +1068,27 @@ window.RPG_ART = function (BK) {
       }
       return x - S3;
     };
-    const xEnd = word('SHADOW', 3);
+    const xEnd = word('HOLLOW', 3);
     const ex = xEnd + 18, ey = 24;
-    word('STRIKE', ex + 17);
+    word('CROWN', ex + 17);
     // extrude + violet outline for the text only
     const T0 = cloneG(G);
     for (let y = LH - 1; y >= 0; y--) for (let x = 0; x < LW; x++) if (T0.get(x, y) >= 0) for (let k = 1; k <= 3; k++) if (G.get(x + (k > 2 ? 1 : 0), y + k) < 0) G.set(x + (k > 2 ? 1 : 0), y + k, k === 3 ? C.vio5 : C.vio4);
     const T1 = cloneG(G);
     for (let y = 0; y < LH; y++) for (let x = 0; x < LW; x++) if (T1.get(x, y) < 0) { let n = false; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (T0.get(x + dx, y + dy) >= 0) n = true; if (n) G.set(x, y, C.vio2); }
-    // shuriken emblem on a violet badge
+    // crown emblem on a violet badge
     const E = GX(LW, LH);
     E.e(ex - 0.5, ey - 0.5, 18.5, 18.5, (dx, dy, x, y, d) => (d > 0.84 ? (dx + dy < 0 ? C.vio2 : C.vio3) : dz(x, y, 0.35 - (dx + dy) * 0.3) ? C.vio3 : C.vio4));
-    starPoly(E, ex, ey, 22, 6.5, -Math.PI / 2 + 0.3, 0.32, C.armor0, C.armor2, ex - 24, 0, ex + 24, LH - 1);
-    for (let y = 0; y < LH; y++) for (let x = ex - 24; x <= ex + 24; x++) { const v = E.get(x, y); if (v === C.armor0 && (E.get(x + 1, y) === C.armor2 || E.get(x, y + 1) === C.armor2)) E.set(x, y, C.armor1); }
-    E.e(ex - 0.5, ey - 0.5, 4.5, 4.5, (dx, dy, x, y, d) => (d < 0.3 ? C.vio5 : d < 0.62 ? C.goldD : dx + dy < 0 ? C.holy1 : C.gold));
+    {
+      const by0 = ey + 3, by1 = ey + 9, SP = [[ex - 10, 8], [ex, 12], [ex + 10, 8]];
+      for (const [sx, h] of SP) for (let k = 0; k <= h; k++) {
+        const hw = Math.round((h - k) * 0.42);
+        for (let x = sx - hw; x <= sx + hw; x++) E.set(x, by0 - 1 - k, x < sx ? C.holy1 : x === sx ? C.gold : C.goldD);
+      }
+      for (let y = by0; y <= by1; y++) for (let x = ex - 13; x <= ex + 13; x++) E.set(x, y, y === by0 ? C.holy1 : y === by1 ? C.goldD : dz(x, y, 0.3) ? C.goldD : C.gold);
+      for (const [sx, h] of SP) { const ty = by0 - 2 - h; E.set(sx, ty, C.holy0); E.set(sx - 1, ty, C.holy1); E.set(sx + 1, ty, C.gold); E.set(sx, ty - 1, C.holy1); E.set(sx, ty + 1, C.gold); }
+      for (const [jx, c0, c1] of [[ex - 8, C.ice1, C.ice2], [ex, C.crim1, C.crim2], [ex + 8, C.ice1, C.ice2]]) { E.set(jx, by0 + 3, c0); E.set(jx + 1, by0 + 3, c1); E.set(jx, by0 + 4, c1); E.set(jx + 1, by0 + 4, c1); E.set(jx, by0 + 2, 35); }
+    }
     E.outline();
     for (let i = 0; i < E.a.length; i++) if (E.a[i] >= 0) G.a[i] = E.a[i];
     G.outline();

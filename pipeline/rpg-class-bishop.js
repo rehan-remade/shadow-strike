@@ -1,4 +1,4 @@
-// Shadow Strike: BISHOP class (priest). Ported from the Genesis prototype (src/skills/04-genesis.js):
+// Hollow Crown: BISHOP class (priest). Ported from the Genesis prototype (src/skills/04-genesis.js):
 // white-and-gold robes, tall mitre, small halo, gold cross staff, Angel Ray bolts, winged holy pillar.
 // Contract: bake/RPG_CLASSES.md. Everything here is self-contained and deterministic.
 window.RPG_CLASS_BISHOP = function (BK) {

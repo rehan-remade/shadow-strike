@@ -1,4 +1,4 @@
-// Shadow Strike: HERO (warrior) class. The steel knight from src/skills/06-dragon.js (Dragon Fury):
+// Hollow Crown: HERO (warrior) class. The steel knight from src/skills/06-dragon.js (Dragon Fury):
 // steel plate, red cape + plume, big broadsword, crimson crescents, spectral dragon, Rush and Worldreaver.
 // Kit: J Slash, K Rush (brandish = its finisher), L Dragon Fury, U Worldreaver (slam + quake), SP Leap.
 // Sheets: pc_hero, pc_hero_ghost (anims incl. rush, slam), portrait_pc_hero, icons_hero (j k l u sp),

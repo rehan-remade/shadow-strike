@@ -9,7 +9,7 @@ public static class Setup
 {
     const string ScenePath = "Assets/Scenes/Main.unity";
 
-    [MenuItem("Shadow Strike/Setup Project")]
+    [MenuItem("Hollow Crown/Setup Project")]
     public static void Run()
     {
         var tm = new SerializedObject(AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset")[0]);
@@ -19,7 +19,7 @@ public static class Setup
         tm.ApplyModifiedProperties();
 
         PlayerSettings.companyName = "fal";
-        PlayerSettings.productName = "Shadow Strike";
+        PlayerSettings.productName = "Hollow Crown";
         PlayerSettings.defaultScreenWidth = 1280;
         PlayerSettings.defaultScreenHeight = 720;
         PlayerSettings.fullScreenMode = FullScreenMode.Windowed;
@@ -49,6 +49,6 @@ public static class Setup
         Debug.Log("[Setup] build " + target + ": " + r.summary.result + " " + r.summary.totalSize + " bytes, " + r.summary.totalErrors + " errors");
         if (r.summary.result != BuildResult.Succeeded) EditorApplication.Exit(1);
     }
-    public static void BuildWin() { Build(BuildTarget.StandaloneWindows64, "Builds/Win/ShadowStrike.exe"); }
+    public static void BuildWin() { Build(BuildTarget.StandaloneWindows64, "Builds/Win/HollowCrown.exe"); }
     public static void BuildWeb() { Build(BuildTarget.WebGL, "Builds/WebGL"); }
 }

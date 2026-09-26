@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-// The Night Lord. MapleStory movement (one-way platforms, drop-through, ropes/ladders, Flash Jump) and the
+// The player (movement shared by every class; the Night Lord kit lives here, other kits in PlayerClasses.cs). MapleStory movement (one-way platforms, drop-through, ropes/ladders, Flash Jump) and the
 // level-gated skill kit: J Triple Throw, K Avenger, L Assassinate, U Shadow Partner. 1/2 drink potions.
 public partial class Player
 {

@@ -134,7 +134,7 @@ public class Game : MonoBehaviour
     // ------------------------------------------------------------------ game flow
     public void StartGame(bool fresh, string cls)
     {
-        if (fresh) Stats.NewGame(cls ?? "nightlord"); else Stats.Load();
+        if (fresh) Stats.NewGame(cls ?? "hero"); else Stats.Load();
         if (!Classes.Available(Classes.Cur)) Stats.D.cls = "nightlord";
         player.SetClass(Classes.Cur);
         state = State.Play; playStart = time;
@@ -198,7 +198,7 @@ public class Game : MonoBehaviour
         n.talking = true;
         if (n.d.id == "merchant")
         {
-            dialog.Show("merchant", "MIRA - MERCHANT", new[] { "WELCOME, TRAVELER! POTIONS, STARS... IF IT HELPS YOU FIGHT MUSHROOMS, I SELL IT." }, new[] { "BUY", "LEAVE" },
+            dialog.Show("merchant", "MIRA - MERCHANT", new[] { "WELCOME, TRAVELER! POTIONS, RUNES... IF IT HELPS YOU FIGHT MUSHROOMS, I SELL IT." }, new[] { "BUY", "LEAVE" },
                 c => { n.talking = false; if (c == 0) shop.Show(); });
             return;
         }

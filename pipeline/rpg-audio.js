@@ -1,4 +1,4 @@
-// Shadow Strike RPG audio: UI/field SFX and five seamless BGM loops, all synthesized offline.
+// Hollow Crown RPG audio: UI/field SFX and five seamless BGM loops, all synthesized offline.
 // Loaded by bake-run.mjs before bake.js (contract: pipeline/RPG_ASSETS.md "Hooks" + "Audio").
 // Everything lives inside the hook so nothing leaks into the shared script scope.
 window.RPG_AUDIO = async function (BK) {

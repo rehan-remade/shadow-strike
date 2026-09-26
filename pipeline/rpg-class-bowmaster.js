@@ -1,4 +1,4 @@
-// Shadow Strike playable class: BOWMASTER (archer).
+// Hollow Crown playable class: BOWMASTER (archer).
 // Port of the hooded green archer from 01-archer.html (cloak, red/white fletched quiver, longbow whose string
 // draws back, gold charged power-shot arrow) onto the class contract in bake/RPG_CLASSES.md.
 // Everything is drawn into index layers that are auto-outlined in ink (like the boss Grid) and composited.

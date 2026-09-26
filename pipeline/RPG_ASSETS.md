@@ -1,4 +1,4 @@
-# Shadow Strike RPG: asset contract
+# Hollow Crown RPG: asset contract
 
 The Unity game (`unity/`, C# in `unity/Assets/Scripts`) loads everything baked by
 `node pipeline/bake-run.mjs [outDir]` (default outDir = `unity/Assets/Resources`):
@@ -83,7 +83,7 @@ item), `root` (a gnarled root, quest item), `star_steely`, `star_ilbi` (throwing
 - `marks`: 7x11 frames with names `bang0 bang1 q0 q1`. A gold "!" (quest available) and "?" (quest ready to turn in), 2-frame bob each.
 - `icons2`: 14x14 frames (same style as the existing `icons` sheet, dark violet bg) with names `flash red blue lock`.
   `lock` is a padlock overlay drawn on a transparent bg.
-- `logo`: single image of about 220x48, the "SHADOW STRIKE" title logo (gold/violet chunky pixel lettering plus a shuriken emblem).
+- `logo`: single image of about 220x48, the "HOLLOW CROWN" title logo (gold/violet chunky pixel lettering plus a crown emblem).
 
 ## Audio (rpg-audio.js)
 Mono 44.1 kHz WAVs. SFX should be short and punchy, in the style of the existing synth SFX (see the `SND` entries in `prototype/src/engine.js` and `prototype/src/skills/05-avenger.js`).

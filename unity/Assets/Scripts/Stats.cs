@@ -27,7 +27,7 @@ public static class Stats
     public static readonly int[] SkillLevel = { 1, 6, 8, 4, 2 };
     public static int[] SkillMp { get { return Classes.Cur.mp; } }
     static readonly int[] StarAtk = { 0, 8, 20 };
-    public static readonly string[] StarName = { "SUBI", "STEELY", "ILBI" };
+    public static readonly string[] StarName = { "NONE", "MIGHT", "GLORY" };   // attack runes (saved as starTier)
 
     public static int Level { get { return D.level; } }
     public static int MaxHp { get { var c = Classes.Cur; return c.hpBase + c.hpLv * D.level; } }
@@ -39,7 +39,7 @@ public static class Stats
     public static readonly QuestDef[] Quests =
     {
         new QuestDef { title = "SHELLS IN THE GROVE", kind = "kill", target = "shellback", need = 8, rExp = 60, rMeso = 300, rRed = 10,
-            offer = new[] { "AH, A NIGHT LORD. JUST IN TIME.", "SHELLBACKS HAVE CRAWLED OUT OF THE MUSHROOM GROVE EAST OF TOWN. THEY CHEW OUR FENCES TO SPLINTERS.", "DEFEAT 8 OF THEM FOR ME?" },
+            offer = new[] { "AH, AN ADVENTURER. JUST IN TIME.", "SHELLBACKS HAVE CRAWLED OUT OF THE MUSHROOM GROVE EAST OF TOWN. THEY CHEW OUR FENCES TO SPLINTERS.", "DEFEAT 8 OF THEM FOR ME?" },
             active = new[] { "THE GROVE IS THROUGH THE PORTAL TO THE EAST. PRESS UP ON A PORTAL TO USE IT." },
             done = new[] { "WELL DONE! THE FENCES THANK YOU. TAKE THESE POTIONS, YOU WILL NEED THEM." } },
         new QuestDef { title = "CAPLING CAPS", kind = "collect", target = "cap", need = 8, rExp = 220, rMeso = 800, rBlue = 8,
@@ -51,8 +51,8 @@ public static class Stats
             active = new[] { "THE HOLLOW DEEP IS EAST OF THE MUSHROOM GROVE. WATCH OUT FOR THE WISPS." },
             done = new[] { "YOU HAVE GROWN STRONG. NOW I CAN TELL YOU THE TRUTH..." } },
         new QuestDef { title = "THE CROWNED ONE", kind = "boss", target = "king", need = 1, rExp = 3000, rMeso = 8000,
-            offer = new[] { "KING SHROOM HAS AWOKEN IN THE ROYAL GLADE. HE IS THE ONE STIRRING THE FOREST.", "THE GLADE SEAL WILL NOW OPEN FOR YOU. END HIS REIGN, NIGHT LORD." },
-            active = new[] { "THE ROYAL GLADE LIES AT THE FAR EAST END OF THE HOLLOW DEEP. USE AVENGER AND ASSASSINATE WELL." },
+            offer = new[] { "KING SHROOM HAS AWOKEN IN THE ROYAL GLADE. HE IS THE ONE STIRRING THE FOREST.", "THE GLADE SEAL WILL NOW OPEN FOR YOU. END HIS REIGN, ADVENTURER." },
+            active = new[] { "THE ROYAL GLADE LIES AT THE FAR EAST END OF THE HOLLOW DEEP. HE FIGHTS IN THREE STAGES - WATCH THE GROUND FOR HIS MARKS." },
             done = new[] { "THE CROWN OF THE MUSHROOM KING! CROWNHOLLOW IS SAFE THANKS TO YOU.", "YOU ARE A TRUE HERO OF THE WOODS." } },
     };
     public static QuestDef Cur { get { return D.quest < Quests.Length ? Quests[D.quest] : null; } }
@@ -126,7 +126,7 @@ public static class Stats
     }
 
     // ---------------------------------------------------------------- saving
-    const string KEY = "shadowstrike_save_v1";
+    const string KEY = "hollowcrown_save_v1";
     public static bool HasSave { get { return PlayerPrefs.HasKey(KEY); } }
     public static void Save()
     {

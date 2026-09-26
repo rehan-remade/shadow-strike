@@ -1,4 +1,4 @@
-# Shadow Strike: playable class asset contract
+# Hollow Crown: playable class asset contract
 
 This extends `pipeline/RPG_ASSETS.md`: same pipeline, palette, style and helpers. Read that first. The game renders
 at 320x180 and one pixel is one world unit. Everything is crisp pixel art with a 1px `ink` outline on characters,

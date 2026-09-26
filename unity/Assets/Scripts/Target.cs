@@ -1,4 +1,4 @@
-// Anything the Night Lord's skills can hit: field monsters, the training dummy, the boss.
+// Anything the player's skills can hit: field monsters, the training dummy, the boss.
 public struct HitOpt { public float push; public int stop, shakeN, straw; public bool big, crit, bigNum; public float dmgBase; public string sfx; }
 
 // per-target MapleStory damage-number stacking state

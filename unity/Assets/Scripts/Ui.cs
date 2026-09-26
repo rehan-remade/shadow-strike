@@ -399,8 +399,8 @@ public class Shop
     {
         new Item { key = "red", name = "RED POTION  (+60 HP)", icon = "potion_red", price = 25 },
         new Item { key = "blue", name = "BLUE POTION (+40 MP)", icon = "potion_blue", price = 40 },
-        new Item { key = "steely", name = "STEELY STARS (+8 ATK)", icon = "star_steely", price = 1200 },
-        new Item { key = "ilbi", name = "ILBI STARS  (+20 ATK)", icon = "star_ilbi", price = 5000 },
+        new Item { key = "steely", name = "RUNE OF MIGHT (+8 ATK)", icon = "star_steely", price = 1200 },
+        new Item { key = "ilbi", name = "RUNE OF GLORY (+20 ATK)", icon = "star_ilbi", price = 5000 },
     };
     readonly Panel panel, hl;
     readonly PixelText title, meso, help;
@@ -430,13 +430,13 @@ public class Shop
             var it = items[sel];
             bool owned = (it.key == "steely" && D.starTier >= 1) || (it.key == "ilbi" && D.starTier >= 2);
             bool needPrev = it.key == "ilbi" && D.starTier < 1;
-            if (owned || needPrev) { Sfx.Play("deny"); G.hud.Chat(owned ? "YOU ALREADY OWN THOSE STARS." : "BUY STEELY STARS FIRST.", "white"); }
+            if (owned || needPrev) { Sfx.Play("deny"); G.hud.Chat(owned ? "YOU ALREADY OWN THAT RUNE." : "BUY THE RUNE OF MIGHT FIRST.", "white"); }
             else if (D.meso < it.price) { Sfx.Play("deny"); G.hud.Chat("NOT ENOUGH MESOS.", "white"); }
             else
             {
                 D.meso -= it.price; Sfx.Play("meso");
                 if (it.key == "red") D.red++; else if (it.key == "blue") D.blue++;
-                else { D.starTier = it.key == "steely" ? 1 : 2; G.hud.Chat("EQUIPPED " + Stats.StarName[D.starTier] + " STARS! ATTACK +" + (it.key == "steely" ? 8 : 20) + ".", "gold"); Sfx.Play("unlock"); }
+                else { D.starTier = it.key == "steely" ? 1 : 2; G.hud.Chat("BOUND THE RUNE OF " + Stats.StarName[D.starTier] + "! ATTACK +" + (it.key == "steely" ? 8 : 20) + ".", "gold"); Sfx.Play("unlock"); }
             }
         }
         panel.Set(56, 40, 208, 112);
@@ -473,7 +473,7 @@ public class Screens
     public bool Paused;
     // class select
     public bool Choosing;
-    int csel = 4;
+    int csel = 0;
     float cT;
     readonly Panel info;
     readonly Panel[] cards = new Panel[5];
@@ -509,7 +509,7 @@ public class Screens
         sel = Mathf.Clamp(sel, 0, opts.Length - 1);
         logo.enabled = logo.sprite != null;
         if (logo.enabled) Px.Place(logo.transform, Mathf.Round((Px.W - logo.sprite.rect.width) / 2), 104);
-        sub.Set(logo.enabled ? "A NIGHT LORD'S TALE" : "SHADOW STRIKE", logo.enabled ? "white" : "goldBig", Mathf.Round((Px.W - PixelText.Width(logo.enabled ? "A NIGHT LORD'S TALE" : "SHADOW STRIKE", logo.enabled ? 1 : 2)) / 2f), logo.enabled ? 100 : 130);
+        sub.Set(logo.enabled ? "A TALE OF FIVE HEROES" : "HOLLOW CROWN", logo.enabled ? "white" : "goldBig", Mathf.Round((Px.W - PixelText.Width(logo.enabled ? "A TALE OF FIVE HEROES" : "HOLLOW CROWN", logo.enabled ? 1 : 2)) / 2f), logo.enabled ? 100 : 130);
         for (int k = 0; k < 2; k++)
         {
             if (k >= opts.Length) { menu[k].Hide(); continue; }
@@ -517,7 +517,7 @@ public class Screens
             menu[k].Set(s, k == sel ? "gold" : "white", Mathf.Round((Px.W - PixelText.Width(s)) / 2f), 76 - k * 10);
         }
         press.Set("SPACE TO SELECT", "white", Mathf.Round((Px.W - PixelText.Width("SPACE TO SELECT")) / 2f), 48, ((G.tick >> 5) & 1) == 0);
-        ver.Set("V0.1", "dark", 4, 8);
+        ver.Set("V0.2", "dark", 4, 8);
         if (i.confirm)
         {
             Sfx.Play("quest"); HideTitle();

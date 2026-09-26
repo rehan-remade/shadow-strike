@@ -1,4 +1,4 @@
-// Shadow Strike playable class: ARCH MAGE (magician). The blue robed ice mage of src/skills/02-blizzard.js
+// Hollow Crown playable class: ARCH MAGE (magician). The blue robed ice mage of src/skills/02-blizzard.js
 // (tall bent pointed hat with a white fur band, white beard, staff with an ice crystal), who also casts the fire
 // meteor of src/skills/03-meteor.js. Everything is drawn into index grids (auto ink outline) or palette canvases,
 // deterministic (hash/bay only). Contract: bake/RPG_CLASSES.md.
