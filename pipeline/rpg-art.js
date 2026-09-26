@@ -204,7 +204,7 @@ window.RPG_ART = function (BK) {
       return G;
     }
     add('ladder', ladder(false)); add('ladder_top', ladder(true));
-    sheetOf('tiles', 8, 8, 8, T.map(G => G.toCanvas(false)), { px: 0, py: 0, names });
+    sheetOf('tiles', 8, 8, 8, T.map(G => G.toCanvas(false)), { names });   // no px/py: tiles anchor at their bottom-left corner
   })();
 
   // ================================================================== PARALLAX
