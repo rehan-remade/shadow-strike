@@ -3,8 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="description" content="Shadow Strike - a MapleStory-inspired pixel RPG where every sprite, effect and sound is generated as code.">
-<title>Shadow Strike</title>
+<meta name="description" content="Hollow Crown - a free MapleStory-inspired pixel RPG you play in your browser. Five classes, quests, and a three-stage mushroom king. Every sprite, effect and sound was generated as code.">
+<title>Hollow Crown - play free in your browser</title>
+<meta property="og:title" content="Hollow Crown">
+<meta property="og:description" content="A MapleStory-inspired pixel RPG. Pick one of five classes and take down the King Shroom - free, in your browser.">
+<meta property="og:image" content="https://rehan-remade.github.io/hollow-crown/og.png">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
@@ -57,6 +62,8 @@
   .note { color: var(--muted); font-size: 13px; max-width: 72ch; margin: 0; }
   .note strong { color: var(--text); }
   a { color: var(--violet); }
+  #fs { font: 400 12px/1 var(--display); color: var(--text); background: var(--panel); border: 2px solid var(--line); padding: 5px 8px 4px; cursor: pointer; }
+  #fs:focus-visible { outline: 2px solid var(--violet); }
   @media (prefers-reduced-motion: reduce) { #play:hover { transform: none; } }
 </style>
 </head>
@@ -64,15 +71,15 @@
 
 <div class="wrap">
   <header>
-    <h1>SHADOW <span>STRIKE</span></h1>
-    <p class="sub">A MapleStory-inspired pixel RPG · Unity 6 WebGL · <a href="https://github.com/rehan-remade/shadow-strike">source on GitHub</a></p>
+    <h1>HOLLOW <span>CROWN</span></h1>
+    <p class="sub">A MapleStory-inspired pixel RPG · five classes · free in your browser · <a href="https://github.com/rehan-remade/hollow-crown">source on GitHub</a> · <button id="fs" type="button">⛶ Fullscreen</button></p>
   </header>
 
   <div class="frame">
-    <canvas id="unity-canvas" tabindex="-1" aria-label="Shadow Strike game"></canvas>
+    <canvas id="unity-canvas" tabindex="-1" aria-label="Hollow Crown game"></canvas>
     <div class="overlay" id="loading">
       <div class="bar"><i id="fill"></i></div>
-      <p id="status">Loading 10.9 MB</p>
+      <p id="status">Loading 11 MB</p>
     </div>
     <div class="overlay" id="start" hidden>
       <button id="play" type="button">▶ PLAY</button>
@@ -82,20 +89,21 @@
 
   <ul class="keys" aria-label="Controls">
     <li><kbd>←</kbd><kbd>→</kbd> <b>Move</b></li>
-    <li><kbd>SPACE</kbd> <b>Jump</b> · again in the air for Flash Jump</li>
+    <li><kbd>SPACE</kbd> <b>Jump</b> · again in the air for your class move (Teleport aims with the arrows)</li>
     <li><kbd>↓</kbd>+<kbd>SPACE</kbd> <b>Drop down</b></li>
     <li><kbd>↑</kbd> <b>Climb · talk · portal</b></li>
     <li><kbd>J</kbd><kbd>K</kbd><kbd>L</kbd><kbd>U</kbd> <b>Skills</b></li>
     <li><kbd>1</kbd><kbd>2</kbd> <b>Potions</b></li>
     <li><kbd>ESC</kbd> <b>Help</b></li>
   </ul>
-  <p class="note">Talk to <strong>Elder Rowan</strong> by the campfire to begin. Every sprite, effect, song and sound was <strong>generated as code</strong>, baked into sprite sheets and WAVs, and rendered in Unity at a native 320×180 with a pixel-perfect upscale. Progress saves in this browser.</p>
+  <p class="note">Pick a class — <strong>Hero, Arch Mage, Bishop, Bowmaster or Night Lord</strong> — then talk to <strong>Elder Rowan</strong> by the campfire to begin. Every sprite, effect, song and sound was <strong>generated as code</strong>, baked into sprite sheets and WAVs, and rendered in Unity at a native 320×180 with a pixel-perfect upscale. Progress saves in this browser.</p>
 </div>
 
 <script src="Build/WebGL.loader.js"></script>
 <script>
 (function () {
-  var canvas = document.getElementById('unity-canvas');
+  var canvas = document.getElementById('unity-canvas'), instance = null;
+  document.getElementById('fs').addEventListener('click', function () { if (instance) instance.SetFullscreen(1); canvas.focus(); });
   var fill = document.getElementById('fill'), status = document.getElementById('status');
   var loading = document.getElementById('loading'), start = document.getElementById('start');
   var config = {
@@ -103,13 +111,14 @@
     frameworkUrl: 'Build/WebGL.framework.js.unityweb',
     codeUrl: 'Build/WebGL.wasm.unityweb',
     streamingAssetsUrl: 'StreamingAssets',
-    companyName: 'fal', productName: 'Shadow Strike', productVersion: '0.1',
+    companyName: 'fal', productName: 'Hollow Crown', productVersion: '0.2',
     devicePixelRatio: window.devicePixelRatio || 1,
   };
   createUnityInstance(canvas, config, function (p) {
     fill.style.width = Math.round(p * 100) + '%';
     status.textContent = p < 1 ? 'Loading ' + Math.round(p * 100) + '%' : 'Starting';
-  }).then(function () {
+  }).then(function (inst) {
+    instance = inst;
     loading.hidden = true;
     start.hidden = false;
   }).catch(function (e) {
